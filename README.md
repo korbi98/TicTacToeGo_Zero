@@ -1,2 +1,2 @@
 # TicTacToeGo_Zero
-Maschine Learning with TicTacToe with policy and value network
+Maschine Learning with TicTacToe with policy and value network (Work in Progress)
