@@ -30,22 +30,19 @@ class Game:
             self.btnGrid[x][y].config(text=text)
             self.game.setField(x,y)
         self.game.printField()
-        if self.game.checkboard():
-            self.showFinishDialog()
+        res = self.game.checkboard()
+        if res:
+            self.showFinishDialog(res)
 
     def resetGame(self):
         for i in self.btnGrid:
             for j in i:
                 j.config(text=" ")
 
-    def showFinishDialog(self):
-        msg = ""
-        if self.game.move_number % 2 == 1:
-            msg = "Player 1 won the game"
-        else:
-            msg = "Player 2 won the game"
+    def showFinishDialog(self, winner):
+        title = "Player {0} won the game".format(winner)
             
-        result = messagebox.askquestion(msg, "Start new game?")
+        result = messagebox.askquestion(title, "Start new game?")
         if result == "yes":
             self.game.reset()
             self.resetGame()

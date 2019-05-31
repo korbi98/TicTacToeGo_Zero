@@ -26,19 +26,20 @@ class Tictactoe:
         print()
 
     def checkboard(self):
-        for i in range(self.size):
-            res = self.checkArray(self.getRow(i))
-            if res:
-                return res
-
-        for i in range(self.size):
-            res = self.checkArray(self.getColumn(i))
-            if res:
-                return res
-        for i in self.getDiagonals():
+        for i in self.getRows():
             res = self.checkArray(i)
             if res:
                 return res
+
+        # for i in self.getColumns():
+        #     res = self.checkArray(i)
+        #     if res:
+        #         return res
+
+        # for i in self.getDiagonals():
+        #     res = self.checkArray(i)
+        #     if res:
+        #         return res
 
         return 0
 
@@ -55,18 +56,25 @@ class Tictactoe:
         return 0
 
     
-    def getColumn(self, index):
-        return self.board[index]
+    def getRows(self):
+        row_arrays = []
+        for i in range(self.size - self.win_condition + 1):
+            arrays = self.board[i : i + self.win_condition]
+            for j in range(self.size):
+                row_arrays.append([arrays[k][j] for k in range(self.win_condition)])
+        print(row_arrays)
+        return row_arrays
 
-    def getRow(self, index):
-        column = []
-        for i in range(self.size):
-            column.append(self.board[i][index])
-        return column
+    def getColumns(self):
+        column_arrays = []
+        for i in self.board:
+            for j in range(self.size - self.win_condition + 1):
+                column_arrays.append(i[j : j + self.win_condition])
+        print(column_arrays)
+        return column_arrays
 
     def getDiagonals(self):
         diagonals = []
-        
         for i in range(self.size + 1 - self.win_condition):
             for j in range(self.size + 1 - self.win_condition):
                 diagonal = []
