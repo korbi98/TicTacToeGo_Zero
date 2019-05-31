@@ -22,32 +22,32 @@ class Tictactoe:
 
     def checkboard(self):
         for i in range(self.size):
-            if self.checkArray(self.getRow(i)):
-                return True
+            res = self.checkArray(self.getRow(i))
+            if res:
+                return res
 
         for i in range(self.size):
-            if self.checkArray(self.getColumn(i)):
-                return True
+            res = self.checkArray(self.getColumn(i))
+            if res:
+                return res
         for i in self.getDiagonals():
-            if self.checkArray(i):
-                return True
+            res = self.checkArray(i)
+            if res:
+                return res
 
-        return False
+        return 0
 
     def checkArray(self, array):
-        #print(array)
-        currentNumber = -1
-        counter = 1
-        enoughInRow = False
-        for i in array:
-            if i != 0 and i == currentNumber:
-                counter += 1
-            else:
-                counter = 1
-            currentNumber = i
-            if counter >= self.win_condition:
-                return True
-        return False
+
+        is_x = [i==1 for i in array]
+        if all(is_x):
+                return 1
+
+        is_o = [i==2 for i in array]
+        if all(is_o):
+                return 2
+
+        return 0
 
     
     def getColumn(self, index):
