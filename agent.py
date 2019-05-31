@@ -73,7 +73,7 @@ def play_episode(Game,agent_parameters):
 
 		action = policy_head(Game.board,agent_parameters[int(player)])
 		x,y = get_coords(action.item(),Game.size)
-		Game.setField(x,y)
+		allowed = Game.setField(x,y)
 
 		states_batch[int(player)].append(Game.board)
 		actions_batch[int(player)].append(action.item())
@@ -88,6 +88,13 @@ def play_episode(Game,agent_parameters):
 			rewards_batch[int(not(player))] = [-1.] * len(states_states_batch[int(not(player))])
 
 			Game.reset()
+
+			return states_batch,actions_batch,rewards_batch
+
+		if not(allowed):
+
+			rewards_batch[int(player)] = [-1.]*len(states_batch[int(player)])
+			rewards_batch[int(not(player))] = [0.]*len(states_batch[int(not(player))])
 
 			return states_batch,actions_batch,rewards_batch
 

@@ -9,8 +9,13 @@ class Tictactoe:
         self.board = [[0 for i in range(size)] for i in range(size)]
 
     def setField(self,x,y):
-        self.board[x][y] = self.move_number % 2 + 1
-        self.move_number += 1
+
+        if self.board[x][y] == 0:
+            self.board[x][y] = self.move_number % 2 + 1
+            self.move_number += 1
+            return True
+        else:
+            return False
 
     def printField(self):
         for i in range(len(self.board)):
