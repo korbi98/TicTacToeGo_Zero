@@ -2,12 +2,16 @@ from tkinter import *
 from tkinter import messagebox
 import tictactoe as ttt
 
+# Simple user interface for Game
 class Game:
+    
     def __init__(self, size, win_condition):
         self.game = ttt.Tictactoe(size, win_condition)
         self.btnGrid = [[0 for i in range(size)] for i in range(size)]
         self.initGui()
-        
+
+    # create grid with size*size buttons
+    # set action for each button to btnClick  
     def initGui(self):
         self.root = Tk()
         frame = Frame(self.root)
@@ -24,15 +28,16 @@ class Game:
 
         self.root.mainloop()
 
+    # handles buttonclick at position (x,y)
     def btnClick(self, x, y):
-        if self.game.board[x][y] == 0:
-            text= "X" if self.game.move_number % 2 == 0 else "O"
+        if self.game.setField(x,y):
+            text= "O" if self.game.move_number % 2 == 0 else "X"
             self.btnGrid[x][y].config(text=text)
-            self.game.setField(x,y)
-        self.game.printField()
-        res = self.game.checkboard()
-        if res:
-            self.showFinishDialog(res)
+        self.game.printBoard()
+        
+        winner = self.game.checkboard()
+        if winner:
+            self.showFinishDialog(winner)
 
     def resetGame(self):
         for i in self.btnGrid:
