@@ -2,6 +2,7 @@
 
 
 import torch
+import numpy as np
 import tictactoe as ttt
 import random
 import matplotlib
@@ -11,7 +12,7 @@ import matplotlib.pyplot as plt
 board_size = 3
 n_spaces = board_size**2
 dimensions = [10,9]
-learning_rate = 0.05
+learning_rate = 0.1
 
 def activation(z):
 	return torch.tanh(z)
@@ -66,7 +67,7 @@ def get_coords(n,size):
 	return x,y
 
 
-def play_episode(Game,agent_parameters,noise = 0.3):
+def play_episode(Game,agent_parameters,noise = 0.5):
 
 	states_batch = [[],[]]
 	actions_batch = [[],[]]
@@ -100,7 +101,7 @@ def play_episode(Game,agent_parameters,noise = 0.3):
 
 		if not(allowed):
 
-			rewards_batch[int(player)] = [-1.]*len(states_batch[int(player)])
+			rewards_batch[int(player)] = [0.]*len(states_batch[int(player)])
 			rewards_batch[int(not(player))] = [0.]*len(states_batch[int(not(player))])
 
 			over = True
@@ -132,28 +133,33 @@ def get_training_batch(Game,agent_parameters,batch_size):
 	rewards = [[],[]]
 
 	btr_count= 0
+	episode_length = []
 
 	while collected <= (batch_size//2+Game.size**2):
 		states_batch,actions_batch,rewards_batch,btr = play_episode(Game,agent_parameters)
 
-		states[0] += states_batch[0]
-		states[1] += states_batch[1]
+		if rewards_batch[0][0] != 0:
 
-		actions[0] += actions_batch[0]
-		actions[1] += actions_batch[1]
+			states[0] += states_batch[0]
+			states[1] += states_batch[1]
 
-		rewards[0] += rewards_batch[0]
-		rewards[1] += rewards_batch[1]
+			actions[0] += actions_batch[0]
+			actions[1] += actions_batch[1]
 
-		collected += len(rewards_batch)//2
+			rewards[0] += rewards_batch[0]
+			rewards[1] += rewards_batch[1]
 
-		btr_count += int(btr)
+			collected += len(rewards_batch[0])
+
+			btr_count += int(btr)
+			episode_length.append(float(len(rewards_batch[0])))
+
 
 	complete_states = torch.tensor(states[0][:batch_size//2]+states[1][:batch_size//2])
 	complete_actions = torch.tensor(actions[0][:batch_size//2]+actions[1][:batch_size//2])
 	complete_rewards = torch.tensor(rewards[0][:batch_size//2]+rewards[1][:batch_size//2])
 
-	return complete_states,complete_actions,complete_rewards,float(btr_count)/(batch_size/2.)
+	return complete_states,complete_actions,complete_rewards,torch.mean(torch.tensor(episode_length))
 
 
 def loss(states,actions,rewards,parameters):
@@ -169,29 +175,41 @@ def loss(states,actions,rewards,parameters):
 if __name__ == '__main__':
 
 	Game = ttt.Tictactoe(3,3)
-	batch_size = 2000
+	batch_size = 1000
 	no_epochs = 500
 
 	#weight initialization
 	parameters = get_weights()
 	parameter_pair = [parameters,parameters]
 
-	reward_history = torch.empty(no_epochs)
+	reward_history = []
+
+	plt.ion()
+
+	fig = plt.figure()
+	ax = fig. add_subplot(111)
+	line, = ax.plot(reward_history)
 
 	for epoch in range(no_epochs):
-		states,actions,rewards,btr = get_training_batch(Game,parameter_pair,batch_size)
+		states,actions,rewards,game_length = get_training_batch(Game,parameter_pair,batch_size)
 		l = loss(states,actions,rewards,parameters)
-		reward_history[epoch] = torch.mean(rewards)
+		reward_history.append(torch.mean(rewards).item())
 		print('epoch: '+str(epoch)+
 		      '\tloss: '+str('{:5f}'.format(l.item()))+
-		      '\treward'+str('{:5f}'.format(torch.mean(rewards).item()))+
-		      '\tbroke the rules:'+'{:5f}'.format(btr))
+		      '\treward'+str('{:5f}'.format(torch.mean(torch.abs(rewards)).item()))+
+		      '\tmean length of games:'+'{:5f}'.format(game_length))
+
+		print(np.arange(epoch+1))
+		print(reward_history)
+
+		line.set_xdata(np.arange(epoch+1))
+		line.set_ydata(reward_history)
+		fig.canvas.draw()
+		fig.canvas.flush_events()
+
 		l.backward()
 		with torch.no_grad():
 			for layer in range(len(dimensions)):
-				parameters[layer][0] -= learning_rate*parameters[layer][0].grad
-				parameters[layer][1] -= learning_rate*parameters[layer][1].grad
+				parameters[layer][0] += learning_rate*parameters[layer][0].grad
+				parameters[layer][1] += learning_rate*parameters[layer][1].grad
 
-
-	plt.plot(reward_history.numpy())
-	plt.show()
