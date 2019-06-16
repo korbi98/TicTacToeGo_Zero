@@ -1,5 +1,8 @@
 # Base class for TicTacToe game, defines the game Board
 # and winning conditions
+
+import numpy as np
+
 class Tictactoe:
 
     # size defines the size of the quadratic game Board
@@ -10,7 +13,7 @@ class Tictactoe:
         self.move_number = 0
         self.size = size
         self.win_condition = win_condition
-        self.board = [[0 for i in range(size)] for i in range(size)]
+        self.board = np.zeros((size, size))
 
     # Perform move at x,y if field is free for player 1 or 2 depending on move_number
     def setField(self,x,y):
@@ -101,5 +104,5 @@ class Tictactoe:
 
     # reset game to initial state
     def reset(self):
-        self.board = [[0 for i in range(self.size)] for i in range(self.size)]
+        self.board = np.zeros((size, size))
         self.move_number = 0
