@@ -13,7 +13,7 @@ class Tictactoe:
         self.move_number = 0
         self.size = size
         self.win_condition = win_condition
-        self.board = np.zeros((size, size))
+        self.board = [[0 for i in range(size)] for i in range(size)]
 
     # Perform move at x,y if field is free for player 1 or 2 depending on move_number
     def setField(self,x,y):
@@ -104,5 +104,5 @@ class Tictactoe:
 
     # reset game to initial state
     def reset(self):
-        self.board = np.zeros((size, size))
+        self.board = [[0 for i in range(self.size)] for i in range(self.size)]
         self.move_number = 0

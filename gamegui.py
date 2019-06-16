@@ -42,10 +42,10 @@ class Game:
         if valid:
             self.updateGUI()
             self.game.printBoard()
-        
-        winner = self.game.checkboard()
-        if winner:
-            self.showFinishDialog(winner)
+            winner = self.game.checkboard()
+            if winner:
+                self.showFinishDialog(winner)
+                return False
         return valid
 
     def updateGUI(self):
@@ -72,7 +72,7 @@ class Game:
 
     def genmove(self):
         # replace np.random with actual policy from network
-        flatgame = self.game.board.T.flatten()
+        flatgame = np.array(self.game.board).T.flatten()
         policy = np.random.rand(self.game.size**2)
         policy = policy * (flatgame == 0)
         bestmove = np.unravel_index(np.argmax(policy), (self.game.size, self.game.size))
