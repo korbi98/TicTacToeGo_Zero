@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import messagebox
 import tictactoe as ttt
 import numpy as np
+import agent
 
 # Simple user interface for Game
 class Game:
@@ -9,9 +10,9 @@ class Game:
     def __init__(self, size, win_condition, isAIstarting = False):
         self.game = ttt.Tictactoe(size, win_condition)
         self.btnGrid = [[0 for i in range(size)] for i in range(size)]
+        self.isAistarting = isAIstarting
         self.initGui()
-        if isAIstarting:
-            self.genmove()
+        
 
     # create grid with size*size buttons
     # set action for each button to btnClick  
@@ -28,6 +29,9 @@ class Game:
                 self.btnGrid[i][j].config(font=("Courier", 48, "bold"))
                 self.btnGrid[i][j].config(command= lambda x=i, y=j: self.btnClick(x,y))
                 self.btnGrid[i][j].grid(column=i, row=j)
+
+        if self.isAistarting:
+            self.genmove()
 
         self.root.mainloop()
 
@@ -54,11 +58,13 @@ class Game:
                 value = self.game.board[x][y]
                 text = "0" if value == 2 else "X" if value == 1 else " "
                 self.btnGrid[x][y].config(text=text)
-
-    def resetGame(self):
-        for i in self.btnGrid:
+isAIstarting
+isAIstarting
+isAIstarting
             for j in i:
                 j.config(text=" ")
+        if self.isAistarting:
+            self.genmove()
 
     def showFinishDialog(self, winner):
         title = "Player {0} won the game".format(winner)
@@ -73,7 +79,10 @@ class Game:
     def genmove(self):
         # replace np.random with actual policy from network
         flatgame = np.array(self.game.board).T.flatten()
-        policy = np.random.rand(self.game.size**2)
+
+        policy = agent.policy_head(self.game.board, agent.get_weights()).detach().numpy()
+        print(policy)
+
         policy = policy * (flatgame == 0)
         bestmove = np.unravel_index(np.argmax(policy), (self.game.size, self.game.size))
         print(policy)
