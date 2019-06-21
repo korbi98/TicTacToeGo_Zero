@@ -58,9 +58,9 @@ class Game:
                 value = self.game.board[x][y]
                 text = "0" if value == 2 else "X" if value == 1 else " "
                 self.btnGrid[x][y].config(text=text)
-isAIstarting
-isAIstarting
-isAIstarting
+ 
+    def resetGame(self):
+        for i in self.btnGrid:
             for j in i:
                 j.config(text=" ")
         if self.isAistarting:
