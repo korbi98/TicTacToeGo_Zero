@@ -1,14 +1,26 @@
+# Graphical User Interfaceq
 from tkinter import *
 from tkinter import messagebox
 import tictactoe as ttt
 import numpy as np
-import agent
 import mcts
 
-# Simple user interface for Game
 class Game:
+    '''
+    This class defines the graphical interface for the Game
+
+    Attributes:
+        - size: defines the size of the quadratic game Board
+        - win_condition: defines how many consecutive pieces
+             of one player arerequired to win the game
+        - isAIstarting: if true the AI makes the first move
+        - ai_mode: specifies which AI is used 
+            (random, policy network or MCTS)
+        - number_of_rollouts: specifies the number of simulations
+            for each move for MCTS
+    '''
     
-    def __init__(self, size, win_condition, isAIstarting = False, ai_mode = "network", number_of_rollouts = 500):
+    def __init__(self, size, win_condition, isAIstarting = False, ai_mode = "network", number_of_rollouts = 1000):
         self.game = ttt.Tictactoe(size, win_condition)
         self.btnGrid = [[0 for i in range(size)] for i in range(size)]
         self.isAistarting = isAIstarting
@@ -17,9 +29,9 @@ class Game:
         self.initGui()
         
 
-    # create grid with size*size buttons
-    # set action for each button to btnClick  
     def initGui(self):
+        '''Initialize the GUI by creating grid with size**2 buttons
+            and sets the action of each button to btnClick'''
         self.root = Tk()
         frame = Frame(self.root)
         self.root.title("TicTacToe")
@@ -38,13 +50,18 @@ class Game:
 
         self.root.mainloop()
 
-    # handles buttonclick at position (x,y)
+    
     def btnClick(self, x, y):
+        '''Try to make move at x,y of button that was clicked
+             for current player. If successful perform AI move afterwards'''
         if self.makeMove(x,y):
             self.genmove()
 
-    def makeMove(self, x, y):
 
+    def makeMove(self, x, y):
+        '''call setField for self.game at x,y. If successful
+            update the GUI and check if game reached terminal
+            state. If so, show finishdialog'''
         valid = self.game.setField(x,y)
         if valid:
             self.updateGUI()
@@ -56,6 +73,7 @@ class Game:
         return valid
 
     def updateGUI(self):
+        '''update the GUI according to current self.game'''
         for x in range(self.game.size):
             for y in range(self.game.size):
                 value = self.game.board[x][y]
@@ -63,6 +81,7 @@ class Game:
                 self.btnGrid[x][y].config(text=text)
  
     def resetGame(self):
+        '''reset GUI and game to initial state'''
         for i in self.btnGrid:
             for j in i:
                 j.config(text=" ")
@@ -70,6 +89,7 @@ class Game:
             self.genmove()
 
     def showFinishDialog(self, winner):
+        '''Show dialog that lets you start new game or end game'''
         title = ("Player " + str(winner) if winner != 0 else "Nobody") + " has won"
             
         result = messagebox.askquestion(title, "Start new game?")
@@ -80,11 +100,12 @@ class Game:
             self.root.destroy()
 
     def genmove(self):
-        
+        '''Generate AI move for choosen ai_mode'''
         flatgame = self.game.getFlatgame()
         policy = np.zeros(self.game.size**2)
         
         if (self.ai_mode == "network"):
+            import agent
             policy = agent.policy_head(self.game.board, agent.get_weights()).detach().numpy()
             policy = policy * (flatgame == 0)
         elif (self.ai_mode == "tree"):
@@ -99,4 +120,4 @@ class Game:
         print(policy)
         print(bestmove)
         self.makeMove(bestmove[0], bestmove[1])
-        
+    
