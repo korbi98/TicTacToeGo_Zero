@@ -3,14 +3,17 @@ from tkinter import messagebox
 import tictactoe as ttt
 import numpy as np
 import agent
+import mcts
 
 # Simple user interface for Game
 class Game:
     
-    def __init__(self, size, win_condition, isAIstarting = False):
+    def __init__(self, size, win_condition, isAIstarting = False, ai_mode = "network", number_of_rollouts = 500):
         self.game = ttt.Tictactoe(size, win_condition)
         self.btnGrid = [[0 for i in range(size)] for i in range(size)]
         self.isAistarting = isAIstarting
+        self.ai_mode = ai_mode
+        self.number_of_rollouts = number_of_rollouts
         self.initGui()
         
 
@@ -47,7 +50,7 @@ class Game:
             self.updateGUI()
             self.game.printBoard()
             winner = self.game.checkboard()
-            if winner:
+            if winner or self.game.move_number >= self.game.size**2:
                 self.showFinishDialog(winner)
                 return False
         return valid
@@ -67,7 +70,7 @@ class Game:
             self.genmove()
 
     def showFinishDialog(self, winner):
-        title = "Player {0} won the game".format(winner)
+        title = ("Player " + str(winner) if winner != 0 else "Nobody") + " has won"
             
         result = messagebox.askquestion(title, "Start new game?")
         if result == "yes":
@@ -77,21 +80,23 @@ class Game:
             self.root.destroy()
 
     def genmove(self):
-        # replace np.random with actual policy from network
-        flatgame = np.array(self.game.board).T.flatten()
+        
+        flatgame = self.game.getFlatgame()
+        policy = np.zeros(self.game.size**2)
+        
+        if (self.ai_mode == "network"):
+            policy = agent.policy_head(self.game.board, agent.get_weights()).detach().numpy()
+            policy = policy * (flatgame == 0)
+        elif (self.ai_mode == "tree"):
+            current_player = self.game.move_number % 2 + 1
+            tree_ai = mcts.MCTS(self.game.board, current_player, self.game.win_condition, self.number_of_rollouts)
+            policy = tree_ai.perform_search()
+        elif (self.ai_mode == "random"):
+            policy = np.random.rand(self.game.size**2)
+            policy = policy * (flatgame == 0)
 
-        policy = agent.policy_head(self.game.board, agent.get_weights()).detach().numpy()
-        print(policy)
-
-        policy = policy * (flatgame == 0)
         bestmove = np.unravel_index(np.argmax(policy), (self.game.size, self.game.size))
         print(policy)
         print(bestmove)
-        self.makeMove(bestmove[1], bestmove[0])
-        
-
-
-
-
-
+        self.makeMove(bestmove[0], bestmove[1])
         

@@ -4,16 +4,17 @@
 import numpy as np
 
 class Tictactoe:
-
-    # size defines the size of the quadratic game Board
-    # win_condition defines how many consecutive pieces of one player are
-    # required to win the game
+    ''' size defines the size of the quadratic game Board
+        win_condition defines how many consecutive pieces of one player are
+        required to win the game'''
+        
     def __init__(self, size, win_condition):
         assert size >= win_condition, "Size is smaller than win condition"
         self.move_number = 0
         self.size = size
         self.win_condition = win_condition
         self.board = [[0 for i in range(size)] for i in range(size)]
+
 
     # Perform move at x,y if field is free for player 1 or 2 depending on move_number
     def setField(self,x,y):
@@ -24,6 +25,7 @@ class Tictactoe:
         else:
             return False
 
+
     # Print complete board in terminal
     def printBoard(self):
         for i in range(len(self.board)):
@@ -33,8 +35,9 @@ class Tictactoe:
             print()
         print()
 
+
     # Checks all possible rows, columns and diagonals
-    # returns 1 if player 1 won, 2 if player 2 won, 0 else
+    # returns 1 if player 1 won, 2 if player 2 won, 0 elseflatgame
     def checkboard(self):
         for i in self.getRows():
             res = self.checkArray(i)
@@ -53,6 +56,7 @@ class Tictactoe:
 
         return 0
 
+
     # checks array of size(win_condition)
     def checkArray(self, array):
 
@@ -66,6 +70,7 @@ class Tictactoe:
 
         return 0
 
+
     # returns list of all possible consecutive 
     # arrays of size(win_condition) in all rows
     def getRows(self):
@@ -76,6 +81,7 @@ class Tictactoe:
                 row_arrays.append([arrays[k][j] for k in range(self.win_condition)])
         return row_arrays
 
+
     # same as getRows for columns
     def getColumns(self):
         column_arrays = []
@@ -83,6 +89,7 @@ class Tictactoe:
             for j in range(self.size - self.win_condition + 1):
                 column_arrays.append(i[j : j + self.win_condition])
         return column_arrays
+
 
     # same as getRows for diagonals
     def getDiagonals(self):
@@ -102,7 +109,21 @@ class Tictactoe:
                 
         return diagonals
 
+
     # reset game to initial state
     def reset(self):
         self.board = [[0 for i in range(self.size)] for i in range(self.size)]
         self.move_number = 0
+
+
+    def perform_random_move(self):
+        flatgame = self.getFlatgame()
+        random_policy = np.random.rand(self.size**2)
+        random_policy = random_policy * (flatgame == 0)
+        choosen_field = np.unravel_index(np.argmax(random_policy), (self.size, self.size))
+        self.setField(choosen_field[0], choosen_field[1])
+
+
+    # returns flat numpy array (vector) of game board
+    def getFlatgame(self):
+        return np.array(self.board).flatten()
