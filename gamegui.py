@@ -65,7 +65,6 @@ class Game:
         valid = self.game.setField(x,y)
         if valid:
             self.updateGUI()
-            self.game.printBoard()
             winner = self.game.checkboard()
             if winner or self.game.move_number >= self.game.size**2:
                 self.showFinishDialog(winner)
@@ -112,13 +111,15 @@ class Game:
             current_player = self.game.move_number % 2 + 1
             tree_ai = mcts.MCTS(self.game.board, current_player, self.game.win_condition, self.number_of_rollouts)
             policy = tree_ai.perform_search()
+            # Add small deviation to prevent ties
             policy = policy + (np.random.rand(self.game.size**2)*0.1)
         elif (self.ai_mode == "random"):
             policy = np.random.rand(self.game.size**2)
             policy = policy * (flatgame == 0)
 
+        # map index of highest policy value to size x size matrix
         bestmove = np.unravel_index(np.argmax(policy), (self.game.size, self.game.size))
         print(np.round(policy))
-        print(bestmove)
+        print("AI choose: x = ",bestmove[0], ", y = ", bestmove[1])
         self.makeMove(bestmove[0], bestmove[1])
     

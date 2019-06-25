@@ -24,24 +24,26 @@ class MCTS:
         self.wincondition = wincondition
         
         self.number_of_rollouts = number_of_rollouts
-        print(self.game_state)
+        print("Initial game state:\n",self.game_state)
 
 
     def perform_search(self):
         '''Perfoming the mcts by performing the specified number of 
             simulations and updating the corresponding leaf node.
-            leaf node is choosen by get_leaf_node function'''
+            leaf node is choosen by traverse_tree function'''
         for i in range(self.number_of_rollouts):
             simulated_game = Tictactoe(len(self.game_state), self.wincondition)
             simulated_game.board = copy.deepcopy(self.game_state)
             simulated_game.move_number = (simulated_game.getFlatgame() != 0).sum()
 
+            # Traverse to leaf
             leaf, visited_indicies = self.traverse_tree(simulated_game)
+            # Random simulation for leaf
             result = self.rollout(simulated_game)
+            # Update all visited nodes 
             self.update_tree(result, visited_indicies)
             
-        self.tree.print()
-
+        print("First layer:")
         for child in self.tree.children:
             child.print()
 
@@ -52,10 +54,9 @@ class MCTS:
 
         
     def update_tree(self, result, visited_indicies):
-        '''update leaf in tree'''
+        '''update all visited nodes in tree'''
         self.tree.visits += 1
         current_node = self.tree
-        print(result, visited_indicies)
         for index in visited_indicies:
             current_node = current_node.children[index]
             current_node.visits += 1
@@ -67,43 +68,45 @@ class MCTS:
         '''perform random play for choosen leaf node till terminal
             state is reached'''
 
-        # play random game from leafnode
-        while (not simulated_game.checkboard()) and simulated_game.move_number < 9:
+        while (not simulated_game.checkboard()) and simulated_game.move_number < simulated_game.size**2:
             simulated_game.perform_random_move()
     
-        simulated_game.printBoard()
         res = simulated_game.checkboard()
-        #print(res, self.current_player)
-        reward = 0
+
+        reward = 1
         if res:
             if res == self.current_player:
-                reward = 1
-            else: reward = -1
-        
+                reward = 2
+            else: reward = -10
+        print("Finished simulation with reward ", reward, " Terminal state is:")
+        simulated_game.printBoard()
         return reward
         
 
     def traverse_tree(self, simulated_game):
-        '''Choose next leaf for performing rollout.
-            unexplored leafs are prefered. If parent node is fully
-            expanded, leaf with highest UCT value is choosen
+        '''Choose next leaf for performing rollout. When node is fully
+            expanded, child with highest UCT is choosen. If not a 
+            random unexplored node is choosen.
         '''
         visited_indicies = []
-        current_node = self.tree # root
+        current_node = self.tree #root
         while current_node.isExpanded():
             newnode, index = current_node.traverse(self.tree)
             current_node = newnode
             visited_indicies.append(index)
             x,y = simulated_game.get_coords(current_node.boardposition, simulated_game.size)
             simulated_game.setField(x,y)
-            
+
+        # create children if empty    
         if not current_node.children:
             current_node.getPossiblechildren(simulated_game.board)
 
+        # terminate if board is full
         if not simulated_game.move_number < len(self.game_state)**2:
             return current_node, visited_indicies
 
         unexplored_leafs = list(filter(lambda x: x.visits == 0, current_node.children))
+        # Choose random unexplored leaf
         leaf = choice(unexplored_leafs)
         visited_indicies.append(current_node.children.index(leaf))
         x,y = simulated_game.get_coords(current_node.boardposition, simulated_game.size)

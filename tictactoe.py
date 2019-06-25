@@ -139,7 +139,7 @@ class Tictactoe:
 
 
     def get_coords(self,position,size):
-        #'''return x,y coordinate for flatgame index'''
-	    x = position//size
-	    y = position%size
-	    return x,y
+        '''return x,y coordinate for flatgame index'''
+        x = position//size
+        y = position%size
+        return x,y
