@@ -45,7 +45,7 @@ class Tictactoe:
     # returns 1 if player 1 won, 2 if player 2 won, 0 elseflatgame
     def checkboard(self):
         '''Checks all possible row, column and diagonal combinations
-            returns 0 if game has not reached terminal state or 
+            returns 0 if game has not reached terminal state or draw or 
             player that has won'''
         for i in self.getRows():
             res = self.checkArray(i)
@@ -136,3 +136,10 @@ class Tictactoe:
     def getFlatgame(self):
         '''returns flat numpy array (vector) of game board'''
         return np.array(self.board).flatten()
+
+
+    def get_coords(self,position,size):
+        #'''return x,y coordinate for flatgame index'''
+	    x = position//size
+	    y = position%size
+	    return x,y

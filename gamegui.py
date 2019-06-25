@@ -112,12 +112,13 @@ class Game:
             current_player = self.game.move_number % 2 + 1
             tree_ai = mcts.MCTS(self.game.board, current_player, self.game.win_condition, self.number_of_rollouts)
             policy = tree_ai.perform_search()
+            policy = policy + (np.random.rand(self.game.size**2)*0.1)
         elif (self.ai_mode == "random"):
             policy = np.random.rand(self.game.size**2)
             policy = policy * (flatgame == 0)
 
         bestmove = np.unravel_index(np.argmax(policy), (self.game.size, self.game.size))
-        print(policy)
+        print(np.round(policy))
         print(bestmove)
         self.makeMove(bestmove[0], bestmove[1])
     

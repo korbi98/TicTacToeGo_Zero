@@ -1,9 +1,10 @@
 # Monte Carlo tree search for TicTacToe
 
 import numpy as np
-import math
 from tictactoe import Tictactoe
 import copy
+from random import choice
+from tree import Node
 
 class MCTS:
     '''
@@ -19,19 +20,11 @@ class MCTS:
     def __init__(self, game_state, current_player, wincondition, number_of_rollouts):
         self.game_state = game_state
         self.current_player = current_player
-        self.tree = self.getPosibleActions()
+        self.tree = Node(-1, 0, 0)
         self.wincondition = wincondition
-        self.N = 0
+        
         self.number_of_rollouts = number_of_rollouts
         print(self.game_state)
-
-
-    def getPosibleActions(self):
-        '''gets all possible actions for current game_state.
-            For each field a list containing index, value and visits is generated.
-            if visits is set to -1 the field is taken and poses no valid action'''
-        flatgame = np.array(self.game_state).flatten()
-        return [[index,0,0] if value == 0 else [index,0,-1] for index, value in enumerate(flatgame)]
 
 
     def perform_search(self):
@@ -39,42 +32,48 @@ class MCTS:
             simulations and updating the corresponding leaf node.
             leaf node is choosen by get_leaf_node function'''
         for i in range(self.number_of_rollouts):
-            self.N += 1
-            leaf = self.get_leaf_node()
-            #print("Perform rollout for ", leaf)
-            result = self.rollout(leaf)
-            self.update_tree(leaf, result)
-            #print(self.tree)
-            #print(list(map(lambda x: self.UCT(x), self.tree)))
-            #print(" ")
+            simulated_game = Tictactoe(len(self.game_state), self.wincondition)
+            simulated_game.board = copy.deepcopy(self.game_state)
+            simulated_game.move_number = (simulated_game.getFlatgame() != 0).sum()
 
-        print(self.tree)
-        print(list(map(lambda x: self.UCT(x), self.tree)))
-        return list(map(lambda x: x[2], self.tree))
+            leaf, visited_indicies = self.traverse_tree(simulated_game)
+            result = self.rollout(simulated_game)
+            self.update_tree(result, visited_indicies)
+            
+        self.tree.print()
+
+        for child in self.tree.children:
+            child.print()
+
+        result = [0 for i in range(len(self.game_state)**2)]
+        for child in self.tree.children:
+            result[child.boardposition] = child.visits
+        return result
 
         
-    def update_tree(self, leaf, result):
+    def update_tree(self, result, visited_indicies):
         '''update leaf in tree'''
-        self.tree[leaf[0]][1] += result
-        self.tree[leaf[0]][2] += 1
+        self.tree.visits += 1
+        current_node = self.tree
+        print(result, visited_indicies)
+        for index in visited_indicies:
+            current_node = current_node.children[index]
+            current_node.visits += 1
+            current_node.reward += result
+            result = result * -1
+
             
-    def rollout(self, leaf):
+    def rollout(self, simulated_game):
         '''perform random play for choosen leaf node till terminal
             state is reached'''
-        game = Tictactoe(len(self.game_state), self.wincondition)
-        game.board = copy.deepcopy(self.game_state)
-        flatgame = game.getFlatgame()
-        game.move_number = (game.getFlatgame() != 0).sum()
-
-        # make move to leaf
-        game.setField(leaf[0]//game.size, leaf[0]%game.size)
 
         # play random game from leafnode
-        while (not game.checkboard()) and game.move_number < 9:
-            game.perform_random_move()
+        while (not simulated_game.checkboard()) and simulated_game.move_number < 9:
+            simulated_game.perform_random_move()
     
-        res = game.checkboard()
-
+        simulated_game.printBoard()
+        res = simulated_game.checkboard()
+        #print(res, self.current_player)
         reward = 0
         if res:
             if res == self.current_player:
@@ -84,19 +83,32 @@ class MCTS:
         return reward
         
 
-    def get_leaf_node(self):
+    def traverse_tree(self, simulated_game):
         '''Choose next leaf for performing rollout.
             unexplored leafs are prefered. If parent node is fully
-            expanded, leaf with highest UCT value is choosen'''
-        unvisited_nodes = list(filter(lambda x: x[2] == 0, self.tree))
-        if unvisited_nodes:
-            return unvisited_nodes[0]
-        else:
-            return max(self.tree, key = self.UCT)
-        
-        
+            expanded, leaf with highest UCT value is choosen
+        '''
+        visited_indicies = []
+        current_node = self.tree # root
+        while current_node.isExpanded():
+            newnode, index = current_node.traverse(self.tree)
+            current_node = newnode
+            visited_indicies.append(index)
+            x,y = simulated_game.get_coords(current_node.boardposition, simulated_game.size)
+            simulated_game.setField(x,y)
+            
+        if not current_node.children:
+            current_node.getPossiblechildren(simulated_game.board)
 
-    def UCT(self, node):
-        '''calculate UCT value for given (leaf) node'''
-        if node[2] < 1: return 0
-        return node[1]/node[2] + math.sqrt(math.log(self.N)/node[2])
+        if not simulated_game.move_number < len(self.game_state)**2:
+            return current_node, visited_indicies
+
+        unexplored_leafs = list(filter(lambda x: x.visits == 0, current_node.children))
+        leaf = choice(unexplored_leafs)
+        visited_indicies.append(current_node.children.index(leaf))
+        x,y = simulated_game.get_coords(current_node.boardposition, simulated_game.size)
+        simulated_game.setField(x,y)
+        return choice(unexplored_leafs), visited_indicies
+
+        
+    
