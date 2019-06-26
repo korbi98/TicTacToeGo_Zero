@@ -7,7 +7,7 @@ import copy
 class MCTSold:
     '''
     Class defining a simple monte carlo tree search algorithm.
-
+    Only expands first layer after root. Not really a true MCTS
     Attributes:
         - game_state: the current state of the game (tictactoe board)
         - win_condition: same as win_condition for Tictactoe
