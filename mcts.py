@@ -45,7 +45,7 @@ class MCTS:
             
         print("First layer:")
         for child in self.tree.children:
-            child.print()
+            child.print(self.tree)
 
         result = [0 for i in range(len(self.game_state)**2)]
         for child in self.tree.children:
@@ -55,13 +55,19 @@ class MCTS:
         
     def update_tree(self, result, visited_indicies):
         '''update all visited nodes in tree'''
+
+        reward = [1,1]
+        if result: reward = [3,-6]
+
         self.tree.visits += 1
+        counter = result != self.current_player
         current_node = self.tree
         for index in visited_indicies:
             current_node = current_node.children[index]
             current_node.visits += 1
-            current_node.reward += result
-            result = result * -1
+            print(reward[counter%2])
+            current_node.reward += reward[counter%2]
+            counter += 1
 
             
     def rollout(self, simulated_game):
@@ -73,14 +79,9 @@ class MCTS:
     
         res = simulated_game.checkboard()
 
-        reward = 1
-        if res:
-            if res == self.current_player:
-                reward = 2
-            else: reward = -10
-        print("Finished simulation with reward ", reward, " Terminal state is:")
+        print("Finished simulation player", res, "won. Terminal state is:")
         simulated_game.printBoard()
-        return reward
+        return res
         
 
     def traverse_tree(self, simulated_game):

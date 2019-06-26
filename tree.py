@@ -44,5 +44,5 @@ class Node:
         return self.reward/self.visits + 5*math.sqrt(math.log(root.visits)/self.visits)
         
 
-    def print(self):
-        print("Position ", self.boardposition, ", Reward ", self.reward, ", Visits ", self.visits, ", Childcount ", len(self.children))
+    def print(self, root):
+        print("Position ", self.boardposition, ", Reward ", self.reward, ", Visits ", self.visits, ", UTC ", round(self.UCT(root), 2), ", Childcount ", len(self.children))
