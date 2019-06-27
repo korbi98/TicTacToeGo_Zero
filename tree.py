@@ -9,21 +9,24 @@ class Node:
     Nodes store their position on the board,
     their reward, their visits and their children.
     '''
-    def __init__(self, boardposition, reward, visits):
+    def __init__(self, parent, boardposition, current_player, reward, visits):
+        self.parent = parent
         self.boardposition = boardposition
         self.reward = reward
         self.visits = visits
+        self.current_player = current_player
         self.children = []
 
     def add_child(self, boardposition):
         '''add child with certain position on the board'''
-        self.children.append(Node(boardposition, 0, 0))
+        player = self.current_player%2 + 1
+        self.children.append(Node(self, boardposition, player, 0, 0))
 
     def isExpanded(self):
         '''Check if node is fully expanded, meaning all childs have been visited'''
         return self.children and all(child.visits > 0 for child in self.children)
 
-    def getPossiblechildren(self, game_state):
+    def getPossibleChildren(self, game_state):
         '''Used to add all children to node when visited for the first time'''
         flatgame = np.array(game_state).flatten()
         for position, value in enumerate(flatgame):
@@ -31,11 +34,22 @@ class Node:
                 self.add_child(position)
         #print(len(self.children))
 
+    def update(self, result):
+        self.visits += 1
+        reward = 0
+        if result:
+            if self.current_player == result:
+                reward = 3
+            else:
+                reward = -6
+        print(reward, result, self.current_player)
+        self.reward += reward
+
+
     def traverse(self, root):
         '''Choosed child for node via UCT function'''
         choosen_child = max(self.children, key= lambda x: x.UCT(root))
-        choosen_index = self.children.index(choosen_child)
-        return choosen_child, choosen_index
+        return choosen_child
     
 
     def UCT(self, root):
@@ -45,4 +59,6 @@ class Node:
         
 
     def print(self, root):
-        print("Position ", self.boardposition, ", Reward ", self.reward, ", Visits ", self.visits, ", UTC ", round(self.UCT(root), 2), ", Childcount ", len(self.children))
+        print("Position ", self.boardposition, ", Player ", self.current_player,\
+             ", Reward ", self.reward, ", Visits ", self.visits,\
+             ", UTC ", round(self.UCT(root), 2), ", Childcount ", len(self.children))
