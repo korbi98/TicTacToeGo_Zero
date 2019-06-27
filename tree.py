@@ -41,7 +41,7 @@ class Node:
     def UCT(self, root):
         '''calculate UCT value for given (leaf) node'''
         if self.visits == 0: return 0
-        return self.reward/self.visits + 5*math.sqrt(math.log(root.visits)/self.visits)
+        return self.reward/self.visits + 10*math.sqrt(math.log(root.visits)/self.visits)
         
 
     def print(self, root):

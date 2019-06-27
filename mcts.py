@@ -46,6 +46,10 @@ class MCTS:
         print("First layer:")
         for child in self.tree.children:
             child.print(self.tree)
+        print("Childs of best node:")
+        second_node, a = self.tree.traverse(self.tree)
+        for child in second_node.children:
+            child.print(self.tree)
 
         result = [0 for i in range(len(self.game_state)**2)]
         for child in self.tree.children:
@@ -56,8 +60,8 @@ class MCTS:
     def update_tree(self, result, visited_indicies):
         '''update all visited nodes in tree'''
 
-        reward = [1,1]
-        if result: reward = [3,-6]
+        reward = [0,0]
+        if result: reward = [2,-10]
 
         self.tree.visits += 1
         counter = result != self.current_player
