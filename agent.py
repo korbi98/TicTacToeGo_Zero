@@ -5,14 +5,13 @@ import torch
 import numpy as np
 import tictactoe as ttt
 import random
-import matplotlib
 import matplotlib.pyplot as plt
 
 
 board_size = 3
 n_spaces = board_size**2
-dimensions = [10,10,n_spaces]
-learning_rate = 0.1
+dimensions = [20,20,n_spaces]
+learning_rate = 0.001
 
 def activation(z):
 	return torch.tanh(z)
@@ -107,7 +106,7 @@ def play_episode(Game,agent_parameters,noise):
 		# checks for rule violations
 		if not(allowed):
 
-			rewards_batch[int(player)] = [0.]*len(states_batch[int(player)])
+			rewards_batch[int(player)] = [-5.]*len(states_batch[int(player)])
 			rewards_batch[int(not(player))] = [0.]*len(states_batch[int(not(player))])
 
 			over = True
@@ -117,7 +116,7 @@ def play_episode(Game,agent_parameters,noise):
 		if game_len == Game.size**2:
 
 			rewards_batch[0] = [0.] * len(states_batch[0])
-			rewards_batch[1] = [0.] * len(states_batch[1])
+			rewards_batch[1] = [0.5] * len(states_batch[1])
 
 			over = True
 
@@ -138,27 +137,32 @@ def get_training_batch(Game,agent_parameters,batch_size,noise = 0.0):
 	states = []
 	actions = []
 	rewards = []
+	failed = []
 
 	while collected <= batch_size:
 		states_batch,actions_batch,rewards_batch = play_episode(Game,agent_parameters,noise)
+		if rewards_batch[0][0] == -5. or rewards_batch[1][0] == -5.:
+			failed.append(0.)
+		else:
+			failed.append(1.)
 
-		if rewards_batch[0][0] != 0:
-			states += states_batch[0]
-			actions += actions_batch[0]
-			rewards += rewards_batch[0]
+		states += states_batch[0]
+		actions += actions_batch[0]
+		rewards += rewards_batch[0]
 
-			states += states_batch[1]
-			actions += actions_batch[1]
-			rewards += rewards_batch[1]
+		states += states_batch[1]
+		actions += actions_batch[1]
+		rewards += rewards_batch[1]
 
-			collected += len(rewards_batch[0])+len(rewards_batch[1])
+		collected += len(rewards_batch[0])#+len(rewards_batch[1])
 
 	states = states[:batch_size]
 	actions = actions[:batch_size]
 	rewards = rewards[:batch_size]
+	success_rate = np.mean(np.array(failed))
 
 
-	return np.array(states),np.array(actions),np.array(rewards)
+	return np.array(states),np.array(actions),np.array(rewards)+10.,success_rate
 
 
 def loss(states,actions,rewards,parameters,batch_size):
@@ -170,33 +174,71 @@ def loss(states,actions,rewards,parameters,batch_size):
 
 	return torch.mean(log_loss)
 
+class Monitor():
+
+		def __init__(self):
+				plt.ion()
+				self.fig = plt.figure(figsize=(6.4,9.))
+				self.ax1 = self.fig.add_subplot(211)
+				self.ax2 = self.fig.add_subplot(212)
+				self.l1, = self.ax1.plot(rewards_history,'r.')
+				self.l2, = self.ax2.plot(loss_history)
+
+				self.ax1.set_title('Quotient of games finished')
+				self.ax1.set_xlabel('Batches collected')
+				
+				self.ax2.set_title('Loss Function')
+				self.ax2.set_xlabel('Training Episodes')
+
+
+		def refresh(self,loss,reward):
+				self.l1.set_data(np.arange(len(reward)),reward)
+				self.l2.set_data(np.arange(len(loss)),loss)
+
+				self.ax1.autoscale_view()
+				self.ax1.relim()
+				self.ax2.autoscale_view()
+				self.ax2.relim()
+				self.fig.canvas.draw()
+				plt.pause(.001)
+
 
 if __name__ == '__main__':
 
-
 	Game = ttt.Tictactoe(board_size,3)
-	batch_size = 100
-	no_epochs = 1000
+	batch_size = 1000
+	no_epochs = 100000
 
 	#weight initialization
 	parameters = get_weights()
 	parameter_pair = [parameters,parameters]
 
-#	states,a,r = play_episode(Game,parameter_pair,1.0)
-#	states,actions,rewards = get_training_batch(Game,parameter_pair,40,0.3)
+
+	rewards_history = []
+	loss_history = []
+
+
+	Game_Monitor = Monitor()
 
 
 	for epoch in range(no_epochs):
-		states,actions,rewards = get_training_batch(Game,parameter_pair,batch_size,noise = 0.4)
+
+		if epoch%1 == 0:
+			states,actions,rewards,sr = get_training_batch(Game,parameter_pair,batch_size,noise = 0.3)
+			rewards_history.append(sr)
 		l = loss(states,actions,rewards,parameters,batch_size)
 		l.backward()
 		with torch.no_grad():
 			for layer in range(len(dimensions)):
 				parameters[layer][0] += learning_rate*parameters[layer][0].grad
 				parameters[layer][1] += learning_rate*parameters[layer][1].grad
+				parameters[layer][0].grad.data.zero_()
+				parameters[layer][1].grad.data.zero_()
 
+		loss_history.append(l.item())
 		print('epoch: '+str(epoch)+
 			      '\tloss: '+str('{:5f}'.format(l.item()))+
-			      '\treward'+str('{:5f}'.format(np.mean(np.abs(rewards)))))
+			      '\tgames failed: '+str('{:5f}'.format(rewards_history[-1])))
 
+		Game_Monitor.refresh(loss_history,rewards_history)
 
