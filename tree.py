@@ -39,9 +39,9 @@ class Node:
         reward = 0
         if result:
             if self.current_player == result:
-                reward = 3
+                reward = 2
             else:
-                reward = -6
+                reward = -10
         print(reward, result, self.current_player)
         self.reward += reward
 
