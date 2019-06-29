@@ -5,6 +5,7 @@ from tictactoe import Tictactoe
 import copy
 from random import choice
 from tree import Node
+import time
 
 class MCTS:
     '''
@@ -30,7 +31,9 @@ class MCTS:
     def perform_search(self):
         '''Perfoming the mcts by performing the specified number of 
             simulations and updating the corresponding leaf node.
-            leaf node is choosen by traverse_tree function'''
+            leaf node is choosen by traverse_tree function
+        '''
+        start_time = time.clock()
         for i in range(self.number_of_rollouts):
             simulated_game = Tictactoe(len(self.game_state), self.wincondition)
             simulated_game.board = copy.deepcopy(self.game_state)
@@ -43,6 +46,7 @@ class MCTS:
             # Update all visited nodes 
             self.update_tree(result, visited_indicies)
             
+        end_time = time.clock()    
         print("First layer:")
         for child in self.tree.children:
             child.print(self.tree)
@@ -54,6 +58,7 @@ class MCTS:
         result = [0 for i in range(len(self.game_state)**2)]
         for child in self.tree.children:
             result[child.boardposition] = child.visits
+        print("\nSearch took:", round(end_time-start_time, 4), "seconds")
         return result
 
         
