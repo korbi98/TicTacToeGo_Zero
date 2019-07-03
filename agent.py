@@ -6,11 +6,11 @@ import numpy as np
 import tictactoe as ttt
 import random
 import matplotlib.pyplot as plt
-
+import os
 
 board_size = 3
 n_spaces = board_size**2
-dimensions = [20,20,n_spaces]
+dimensions = [10,10,n_spaces]
 learning_rate = 0.001
 
 def activation(z):
@@ -60,11 +60,40 @@ def get_weights():
 
 	return parameters
 
-def get_coords(n,size):
+def save_weights(parameters,name=None):
+	if name == None:
+		name = 'savedmodel'
+		for dim in dimensions:
+			name += '-'+str(dim)
 
-	x = n//size
-	y = n%size
-	return x,y
+	if not(os.path.isdir(name)):
+		os.mkdir(name)
+
+	for dim_index in range(len(dimensions)):
+		np.savetxt(os.path.join(name,'b'+str(dim_index)),parameters[dim_index][0].detach().numpy())
+		np.savetxt(os.path.join(name,'w'+str(dim_index)),parameters[dim_index][1].detach().numpy())
+
+
+# picks the hioghest legal option
+# out of a random or a calculated distribution
+def highest_legal(state,parameters,noise):
+
+	if random.random() > noise:
+		distribution = policy_head(state,parameters).numpy()
+	else:
+		distribution = np.random.random(size=Game.size**2)
+
+	return np.argmax(Game.get_legal()*distribution)
+
+
+def highest(state,parameters,noise):
+	if random.random() > noise:
+		distribution = policy_head(state,parameters).numpy()
+	else:
+		distribution = np.random.random(size=Game.size**2)
+
+	return np.argmax(distribution)
+
 
 
 def play_episode(Game,agent_parameters,noise):
@@ -75,7 +104,6 @@ def play_episode(Game,agent_parameters,noise):
 	game_len = 0
 	player = False
 	over = False
-	broke_the_rules = False
 
 
 	while game_len <= Game.size**2 and not(over):
@@ -83,12 +111,8 @@ def play_episode(Game,agent_parameters,noise):
 
 		states_batch[int(player)].append(np.array(Game.board))
 
-		if random.random() > noise:
-			action = torch.argmax(policy_head(Game.board,agent_parameters[int(player)]))
-		else:
-			action = torch.tensor(random.randint(0,Game.size**2-1))
-
-		x,y = get_coords(action.item(),Game.size)
+		action = highest(Game.board,agent_parameters[int(player)],noise)
+		x,y = Game.get_coords(action.item(),Game.size)
 		allowed = Game.setField(x,y)
 
 		actions_batch[int(player)].append(action.item())
@@ -101,7 +125,7 @@ def play_episode(Game,agent_parameters,noise):
 			rewards_batch[int(player)] = [1.] * len(states_batch[int(player)])
 			rewards_batch[int(not(player))] = [-1.] * len(states_batch[int(not(player))])
 
-			over = True
+			over = 'Won'
 
 		# checks for rule violations
 		if not(allowed):
@@ -109,16 +133,15 @@ def play_episode(Game,agent_parameters,noise):
 			rewards_batch[int(player)] = [-5.]*len(states_batch[int(player)])
 			rewards_batch[int(not(player))] = [0.]*len(states_batch[int(not(player))])
 
-			over = True
-			broke_the_rules = True
+			over = 'Rule Violation'
 
 		# checks for draws
 		if game_len == Game.size**2:
 
 			rewards_batch[0] = [0.] * len(states_batch[0])
-			rewards_batch[1] = [0.5] * len(states_batch[1])
+			rewards_batch[1] = [0.] * len(states_batch[1])
 
-			over = True
+			over = 'Draw'
 
 		game_len += 1
 		player = not(player)
@@ -127,7 +150,7 @@ def play_episode(Game,agent_parameters,noise):
 	Game.reset()
 
 
-	return states_batch,actions_batch,rewards_batch
+	return states_batch,actions_batch,rewards_batch,over
 
 
 def get_training_batch(Game,agent_parameters,batch_size,noise = 0.0):
@@ -137,14 +160,16 @@ def get_training_batch(Game,agent_parameters,batch_size,noise = 0.0):
 	states = []
 	actions = []
 	rewards = []
-	failed = []
+	outcomes = [0,0,0]
 
 	while collected <= batch_size:
-		states_batch,actions_batch,rewards_batch = play_episode(Game,agent_parameters,noise)
-		if rewards_batch[0][0] == -5. or rewards_batch[1][0] == -5.:
-			failed.append(0.)
-		else:
-			failed.append(1.)
+		states_batch,actions_batch,rewards_batch,over = play_episode(Game,agent_parameters,noise)
+		if over == 'Rule Violation':
+			outcomes[0] += 1.
+		elif over == 'Won':
+			outcomes[1] += 1.
+		elif over == 'Draw':
+			outcomes[2] += 1.
 
 		states += states_batch[0]
 		actions += actions_batch[0]
@@ -159,10 +184,11 @@ def get_training_batch(Game,agent_parameters,batch_size,noise = 0.0):
 	states = states[:batch_size]
 	actions = actions[:batch_size]
 	rewards = rewards[:batch_size]
-	success_rate = np.mean(np.array(failed))
+	statistic = np.array(outcomes)
+	statistic /= np.linalg.norm(statistic)
 
 
-	return np.array(states),np.array(actions),np.array(rewards)+10.,success_rate
+	return np.array(states),np.array(actions),np.array(rewards)+10.,statistic
 
 
 def loss(states,actions,rewards,parameters,batch_size):
@@ -170,7 +196,9 @@ def loss(states,actions,rewards,parameters,batch_size):
 	log_loss = torch.empty(batch_size)
 
 	for i in range(batch_size):
-		log_loss[i] = rewards[i]*torch.log(policy_head(states[i],parameters)[actions[i]])
+		log_loss[i] = torch.log(policy_head(states[i],parameters)[actions[i]])
+		log_loss[i] = log_loss[i]*rewards[i]
+
 
 	return torch.mean(log_loss)
 
@@ -181,12 +209,12 @@ class Monitor():
 				self.fig = plt.figure(figsize=(6.4,9.))
 				self.ax1 = self.fig.add_subplot(211)
 				self.ax2 = self.fig.add_subplot(212)
-				self.l1, = self.ax1.plot(rewards_history,'r.')
-				self.l2, = self.ax2.plot(loss_history)
+				self.l1, = self.ax1.plot([],'r.')
+				self.l2, = self.ax2.plot([])
 
 				self.ax1.set_title('Quotient of games finished')
 				self.ax1.set_xlabel('Batches collected')
-				
+
 				self.ax2.set_title('Loss Function')
 				self.ax2.set_xlabel('Training Episodes')
 
@@ -223,9 +251,10 @@ if __name__ == '__main__':
 
 	for epoch in range(no_epochs):
 
-		if epoch%1 == 0:
-			states,actions,rewards,sr = get_training_batch(Game,parameter_pair,batch_size,noise = 0.3)
-			rewards_history.append(sr)
+		with torch.no_grad():
+			states,actions,rewards,statistic = get_training_batch(Game,parameter_pair,batch_size,noise = 0.3)
+			rewards_history.append(statistic[1])
+
 		l = loss(states,actions,rewards,parameters,batch_size)
 		l.backward()
 		with torch.no_grad():
@@ -234,6 +263,7 @@ if __name__ == '__main__':
 				parameters[layer][1] += learning_rate*parameters[layer][1].grad
 				parameters[layer][0].grad.data.zero_()
 				parameters[layer][1].grad.data.zero_()
+				save_weights(parameters)
 
 		loss_history.append(l.item())
 		print('epoch: '+str(epoch)+
@@ -241,4 +271,5 @@ if __name__ == '__main__':
 			      '\tgames failed: '+str('{:5f}'.format(rewards_history[-1])))
 
 		Game_Monitor.refresh(loss_history,rewards_history)
+
 

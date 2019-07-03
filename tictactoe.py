@@ -11,7 +11,7 @@ class Tictactoe:
         - win_condition: defines how many consecutive pieces
              of one player arerequired to win the game
     '''
-        
+
     def __init__(self, size, win_condition):
         assert size >= win_condition, "Size is smaller than win condition"
         self.move_number = 0
@@ -143,3 +143,8 @@ class Tictactoe:
         x = position//size
         y = position%size
         return x,y
+
+    def get_legal(self):
+        ''' return all spots, that are legal to play'''
+
+        return (self.getFlatgame()==0).astype(np.int32)
