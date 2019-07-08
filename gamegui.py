@@ -4,6 +4,8 @@ from tkinter import messagebox
 import tictactoe as ttt
 import numpy as np
 import mcts
+import agent
+
 
 class Game:
     '''
@@ -26,8 +28,12 @@ class Game:
         self.isAistarting = isAIstarting
         self.ai_mode = ai_mode
         self.number_of_rollouts = number_of_rollouts
+
+        if self.ai_mode == "network":
+            self.parameters = agent.load_model('savedmodel-10-10-9')
+            print('loaded parameters')
+
         self.initGui()
-        
 
     def initGui(self):
         '''Initialize the GUI by creating grid with size**2 buttons
@@ -104,8 +110,9 @@ class Game:
         policy = np.zeros(self.game.size**2)
         
         if (self.ai_mode == "network"):
-            import agent
-            policy = agent.policy_head(self.game.board, agent.get_weights()).detach().numpy()
+            policy = agent.policy_head(self.game.board, self.parameters).detach().numpy()
+            highest = self.game.get_coords(np.argmax(policy))
+            print("Network would like to have picked: x="+str(highest[0])+", y="+str(highest[1]))
             policy = policy * (flatgame == 0)
         elif (self.ai_mode == "tree"):
             current_player = self.game.move_number % 2 + 1
@@ -119,7 +126,7 @@ class Game:
 
         # map index of highest policy value to size x size matrix
         bestmove = np.unravel_index(np.argmax(policy), (self.game.size, self.game.size))
-        print(np.round(policy))
+        print(np.round(policy,decimals = 2))
         print("AI choose: x = ",bestmove[0], ", y = ", bestmove[1])
         self.makeMove(bestmove[0], bestmove[1])
     

@@ -138,10 +138,10 @@ class Tictactoe:
         return np.array(self.board).flatten()
 
 
-    def get_coords(self,position,size):
+    def get_coords(self,position):
         '''return x,y coordinate for flatgame index'''
-        x = position//size
-        y = position%size
+        x = position//self.size
+        y = position%self.size
         return x,y
 
     def get_legal(self):

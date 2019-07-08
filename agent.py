@@ -44,7 +44,7 @@ def policy_head(state,parameters):
 
 
 #weight initialization
-def get_weights():
+def get_random_weights():
 	parameters = []
 
 	for i in range(len(dimensions)):
@@ -60,37 +60,59 @@ def get_weights():
 
 	return parameters
 
-def save_weights(parameters,name=None):
+def get_name(name):
 	if name == None:
 		name = 'savedmodel'
 		for dim in dimensions:
 			name += '-'+str(dim)
+	return name
+
+
+def save_weights(parameters,name=None):
+
+	name = get_name(name)
 
 	if not(os.path.isdir(name)):
 		os.mkdir(name)
 
 	for dim_index in range(len(dimensions)):
-		np.savetxt(os.path.join(name,'b'+str(dim_index)),parameters[dim_index][0].detach().numpy())
-		np.savetxt(os.path.join(name,'w'+str(dim_index)),parameters[dim_index][1].detach().numpy())
+		torch.save(parameters[dim_index][0],os.path.join(name,'b'+str(dim_index))+'.pt')
+		torch.save(parameters[dim_index][1],os.path.join(name,'w'+str(dim_index))+'.pt')
 
+
+def load_model(name=None):
+
+	name = get_name(name)
+
+	if not(os.path.isdir(name)):
+		return get_random_weights()
+
+	parameters = []
+	for dim_index in range(len(dimensions)):
+		biases = torch.load(os.path.join(name,'b'+str(dim_index))+'.pt')
+		weights = torch.load(os.path.join(name,'w'+str(dim_index))+'.pt')
+		parameters.append([biases,weights])
+
+	return parameters
 
 # picks the hioghest legal option
 # out of a random or a calculated distribution
-def highest_legal(state,parameters,noise):
+def highest_legal(state,parameters,noise=0.):
 
 	if random.random() > noise:
 		distribution = policy_head(state,parameters).numpy()
 	else:
-		distribution = np.random.random(size=Game.size**2)
+		distribution = np.random.random(size=n_spaces)
 
-	return np.argmax(Game.get_legal()*distribution)
+	legal = (np.array(state).flatten()==0).astype(np.int32)
+	return np.argmax(legal*distribution)
 
 
-def highest(state,parameters,noise):
+def highest(state,parameters,noise=0.):
 	if random.random() > noise:
 		distribution = policy_head(state,parameters).numpy()
 	else:
-		distribution = np.random.random(size=Game.size**2)
+		distribution = np.random.random(size=n_spaces)
 
 	return np.argmax(distribution)
 
@@ -111,8 +133,8 @@ def play_episode(Game,agent_parameters,noise):
 
 		states_batch[int(player)].append(np.array(Game.board))
 
-		action = highest(Game.board,agent_parameters[int(player)],noise)
-		x,y = Game.get_coords(action.item(),Game.size)
+		action = highest_legal(Game.board,agent_parameters[int(player)],noise=noise)
+		x,y = Game.get_coords(action.item())
 		allowed = Game.setField(x,y)
 
 		actions_batch[int(player)].append(action.item())
@@ -231,29 +253,32 @@ class Monitor():
 				plt.pause(.001)
 
 
-if __name__ == '__main__':
-
+def train():
 	Game = ttt.Tictactoe(board_size,3)
 	batch_size = 1000
 	no_epochs = 100000
+	init_noise = 0.9
+	noise_decay = 0.9997
 
 	#weight initialization
-	parameters = get_weights()
+	parameters = load_model()
 	parameter_pair = [parameters,parameters]
 
 
-	rewards_history = []
+	extra_history = []
 	loss_history = []
 
 
-	Game_Monitor = Monitor()
+	Training_Monitor = Monitor()
 
 
 	for epoch in range(no_epochs):
 
+		init_noise *= noise_decay
+
 		with torch.no_grad():
-			states,actions,rewards,statistic = get_training_batch(Game,parameter_pair,batch_size,noise = 0.3)
-			rewards_history.append(statistic[1])
+			states,actions,rewards,statistic = get_training_batch(Game,parameter_pair,batch_size,noise = init_noise)
+			extra_history.append(init_noise*1)
 
 		l = loss(states,actions,rewards,parameters,batch_size)
 		l.backward()
@@ -268,8 +293,49 @@ if __name__ == '__main__':
 		loss_history.append(l.item())
 		print('epoch: '+str(epoch)+
 			      '\tloss: '+str('{:5f}'.format(l.item()))+
-			      '\tgames failed: '+str('{:5f}'.format(rewards_history[-1])))
+			      '\tnoise: '+str('{:5f}'.format(extra_history[-1])))
 
-		Game_Monitor.refresh(loss_history,rewards_history)
+		Training_Monitor.refresh(loss_history,extra_history)
 
+def color(s,symbol):
+
+	if symbol == 0:
+		return '\u001b[31m'+str(s)+'\u001b[0m'
+	elif symbol == 1:
+		return '\u001b[34m'+str(s)+'\u001b[0m'
+
+
+def render():
+
+
+	Game = ttt.Tictactoe(board_size,3)
+	parameters = load_model()
+	parameter_pair = [parameters,parameters]
+
+
+	with torch.no_grad():
+		for i in range(3):
+			states,actions,rewards,statistics = play_episode(Game,parameter_pair,noise=0.3)
+			board = []
+			counter = 0
+			for i in range(3):
+				board.append([' ']*3)
+			for i in range(len(actions[0])):
+				for p in range(2):
+					if len(actions[p]) > i:
+						coords = Game.get_coords(actions[p][i])
+						board[coords[0]][coords[1]] = color(counter,p)
+						counter += 1
+
+
+			print('+-+-+-+')
+			for row in board:
+				print('|'+row[0]+'|'+row[1]+'|'+row[2]+'|')
+				print('+-+-+-+')
+			print('')
+
+if __name__ == '__main__':
+
+
+	train()
 
