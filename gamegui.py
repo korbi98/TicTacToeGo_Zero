@@ -114,19 +114,20 @@ class Game:
             highest = self.game.get_coords(np.argmax(policy))
             print("Network would like to have picked: x="+str(highest[0])+", y="+str(highest[1]))
             policy = policy * (flatgame == 0)
+            print(np.round(policy, decimals=2))
         elif (self.ai_mode == "tree"):
             current_player = self.game.move_number % 2 + 1
             tree_ai = mcts.MCTS(self.game.board, current_player, self.game.win_condition, self.number_of_rollouts)
             policy = tree_ai.perform_search()
             # Add small deviation to prevent ties
             policy = policy + (np.random.rand(self.game.size**2)*0.1)
+            print(np.round(policy))
         elif (self.ai_mode == "random"):
             policy = np.random.rand(self.game.size**2)
             policy = policy * (flatgame == 0)
 
         # map index of highest policy value to size x size matrix
         bestmove = np.unravel_index(np.argmax(policy), (self.game.size, self.game.size))
-        print(np.round(policy,decimals = 2))
         print("AI choose: x = ",bestmove[0], ", y = ", bestmove[1])
         self.makeMove(bestmove[0], bestmove[1])
     

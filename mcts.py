@@ -20,7 +20,8 @@ class MCTS:
     def __init__(self, game_state, current_player, wincondition, number_of_rollouts):
         self.game_state = game_state
         self.current_player = current_player
-        self.tree = Node(None,-1, current_player - 1, 0, 0)
+        print(self.current_player)
+        self.tree = Node(None,-1, 3 - self.current_player)
         self.wincondition = wincondition
         
         self.number_of_rollouts = number_of_rollouts
@@ -47,38 +48,59 @@ class MCTS:
             
         end_time = time.clock()    
 
-        print("First layer:")
+        print("\nFirst layer:")
         for child in self.tree.children:
             child.print(self.tree)
-        print("Childs of best node:")
-        second_node = self.tree.traverse(self.tree)
-        for child in second_node.children:
-            child.print(self.tree)
 
-        second_layer = self.tree.traverse(self.tree)
-        print("\nchilds of most visited node")
+        second_layer = max(self.tree.children, key= lambda x: x.visits)
+        print("\nSecond layer:")
         for child in second_layer.children:
             child.print(self.tree)
+        if second_layer.children:
+            third_layer = max(second_layer.children, key= lambda x: x.visits)
+            print("\nThird layer:")
+            for child in third_layer.children:
+                child.print(self.tree)
+            if third_layer.children:
+                fourth_layer = max(third_layer.children, key= lambda x: x.visits)      
+                print("\nFourth layer:")
+                for child in fourth_layer.children:
+                    child.print(self.tree)
+
+        print("\nSearch took:", round(end_time-start_time, 4), "seconds")
 
         result = [0 for i in range(len(self.game_state)**2)]
         for child in self.tree.children:
             result[child.boardposition] = child.visits
-        print("\nSearch took:", round(end_time-start_time, 4), "seconds")
         return result
-
         
-    def update_tree(self, result, leaf):
-        '''update all visited nodes in tree'''
 
-        self.tree.visits += 1
-        current_node = leaf
+    def traverse_tree(self, simulated_game):
+        '''Choose next leaf for performing rollout. When node is fully
+            expanded, child with highest UCT is choosen. If not a 
+            random unexplored node is choosen.
+        '''
+        current_node = self.tree #root
+        while current_node.isExpanded():
+            current_node = current_node.UTC_traverse(self.tree)
+            x,y = simulated_game.get_coords(current_node.boardposition)
+            simulated_game.setField(x,y)
 
-        while current_node.parent:
-            #current_node.print(self.tree)
-            current_node.update(result)
-            current_node = current_node.parent
+        # create children if empty    
+        if not current_node.children:
+            current_node.getPossibleChildren(simulated_game.board)
 
-            
+        # terminate if board is full
+        if not simulated_game.move_number < simulated_game.size**2 or simulated_game.checkboard():
+            return current_node
+        
+        x,y = simulated_game.get_coords(current_node.boardposition)
+        simulated_game.setField(x,y)
+        # Choose random unexplored leaf
+        unexplored_leafs = list(filter(lambda x: x.visits == 0, current_node.children))
+        return choice(unexplored_leafs)
+
+
     def rollout(self, simulated_game):
         '''perform random play for choosen leaf node till terminal
             state is reached'''
@@ -93,30 +115,14 @@ class MCTS:
         return res
         
 
-    def traverse_tree(self, simulated_game):
-        '''Choose next leaf for performing rollout. When node is fully
-            expanded, child with highest UCT is choosen. If not a 
-            random unexplored node is choosen.
-        '''
-        current_node = self.tree #root
-        while current_node.isExpanded():
-            current_node = current_node.traverse(self.tree)
-            x,y = simulated_game.get_coords(current_node.boardposition, simulated_game.size)
-            simulated_game.setField(x,y)
+    def update_tree(self, result, leaf):
+        '''update all visited nodes in tree'''
 
-        # create children if empty    
-        if not current_node.children:
-            current_node.getPossibleChildren(simulated_game.board)
+        self.tree.visits += 1
+        current_node = leaf
 
-        # terminate if board is full
-        if not simulated_game.move_number < len(self.game_state)**2:
-            return current_node
+        while current_node.parent:
+            #current_node.print(self.tree)
+            current_node.update(result)
+            current_node = current_node.parent
         
-        x,y = simulated_game.get_coords(current_node.boardposition, simulated_game.size)
-        simulated_game.setField(x,y)
-        # Choose random unexplored leaf
-        unexplored_leafs = list(filter(lambda x: x.visits == 0, current_node.children))
-        return choice(unexplored_leafs)
-
-        
-    
