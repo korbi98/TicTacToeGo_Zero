@@ -17,6 +17,7 @@ def infere(state,parameters):
 	# converts to flatt one hot encoding
 	in_state = torch.tensor(state)
 	flatt = in_state.flatten()
+
 	z = torch.zeros(3,metainfo['n_spaces'])
 	z[flatt,torch.arange(metainfo['n_spaces'])] = 1.
 	z = z.flatten()
@@ -62,6 +63,43 @@ def highest(state,parameters,noise=0.):
 	return np.argmax(distribution)
 
 
+def color(s,symbol):
+
+        if symbol == 0:
+                return '\u001b[31m'+str(s)+'\u001b[0m'
+        elif symbol == 1:
+                return '\u001b[34m'+str(s)+'\u001b[0m'
+
+def render():
+
+
+        Game = ttt.Tictactoe(metainfo['board_size'],metainfo['win_condition'])
+        parameter_pair = [parameters,parameters]
+
+
+        with torch.no_grad():
+                for i in range(4):
+                        states,actions,rewards,statistics = play_episode(Game,parameter_pair,noise=0.3)
+                        board = []
+                        counter = 0
+                        for i in range(3):
+                                board.append([' ']*3)
+                        for i in range(len(actions[0])):
+                                for p in range(2):
+                                        if len(actions[p]) > i:
+                                                coords = Game.get_coords(actions[p][i])
+                                                board[coords[0]][coords[1]] = color(counter,p)
+                                                counter += 1
+
+
+                        print('+-+-+-+')
+                        for row in board:
+                                str = ''
+                                for j in range(len(row)):
+                                        str += '|'+row[j]
+                                print(str)
+                                print('+-+-+-+')
+                        print('')
 
 def play_episode(Game,agent_parameters,noise):
 
@@ -171,10 +209,6 @@ def loss(states,actions,rewards,parameters,batch_size):
 
 def train():
 	Game = ttt.Tictactoe(metainfo['board_size'],metainfo['win_condition'])
-	"""batch_size = 1000
-	no_epochs = 100000
-	init_noise = 0.9
-	noise_decay = 0.9997"""
 	noise = metainfo['noise']
 
 	parameter_pair = [parameters,parameters]
@@ -213,41 +247,59 @@ def train():
 
 		metainfo['epoch'] += 1
 
-def color(s,symbol):
-
-	if symbol == 0:
-		return '\u001b[31m'+str(s)+'\u001b[0m'
-	elif symbol == 1:
-		return '\u001b[34m'+str(s)+'\u001b[0m'
-
-
-def render():
-
+def train_pool():
 
 	Game = ttt.Tictactoe(metainfo['board_size'],metainfo['win_condition'])
-	parameter_pair = [parameters,parameters]
+
+	batch_size = metainfo['batch_size']
+	no_mini_batches = 20
+	mini_batch_size = batch_size//no_mini_batches
+	lr = metainfo['learning_rate']
+
+	while metainfo['epoch'] < metainfo['no_epochs']:
+
+		p1 = np.random.randint(no_members,size=no_mini_batches)
+		p2 = np.random.randint(no_members,size=no_mini_batches)
+
+		with torch.no_grad():
+
+			states = np.empty((batch_size,metainfo['board_size'],metainfo['board_size']),dtype = np.int64)
+			actions = np.empty((batch_size),dtype = np.int64)
+			rewards = np.empty((batch_size))
+
+			for batch_index in range(0,batch_size,mini_batch_size):
+				batchn = batch_index//mini_batch_size
+				mini_batch = get_training_batch(Game,
+								[pool[p1[batchn]][0],pool[p2[batchn]][0]],
+								mini_batch_size,noise = 0.)
+				states[batch_index:batch_index+mini_batch_size] = mini_batch[0]
+				actions[batch_index:batch_index+mini_batch_size] = mini_batch[1]
+				rewards[batch_index:batch_index+mini_batch_size] = mini_batch[2]
 
 
-	with torch.no_grad():
-		for i in range(4):
-			states,actions,rewards,statistics = play_episode(Game,parameter_pair,noise=0.3)
-			board = []
-			counter = 0
-			for i in range(3):
-				board.append([' ']*3)
-			for i in range(len(actions[0])):
-				for p in range(2):
-					if len(actions[p]) > i:
-						coords = Game.get_coords(actions[p][i])
-						board[coords[0]][coords[1]] = color(counter,p)
-						counter += 1
+
+		result_str = 'epoch: '+str(metainfo['epoch'])
+
+		for member_index in range(no_members):
+			l = loss(states,actions,rewards,pool[member_index][0],batch_size)
+			l.backward()
+
+			with torch.no_grad():
+				for layer in range(len(metainfo['dimensions'])):
+					pool[member_index][0][layer][0] += lr*pool[member_index][0][layer][0].grad
+					pool[member_index][0][layer][1] += lr*pool[member_index][0][layer][1].grad
+					pool[member_index][0][layer][0].grad.data.zero_()
+					pool[member_index][0][layer][1].grad.data.zero_()
+
+			result_str += ' {}: {:3f}'.format(member_index,l.item())
+			parameter_managment.save_model(pool[member_index][0],pool[0][1],'train_pool'+str(member_index))
+
+		print(result_str)
 
 
-			print('+-+-+-+')
-			for row in board:
-				print('|'+row[0]+'|'+row[1]+'|'+row[2]+'|')
-				print('+-+-+-+')
-			print('')
+		metainfo['epoch'] += 1
+
+
 
 def get_name(dimensions):
 	name = 'savedmodel'
@@ -259,6 +311,7 @@ def get_args():
 
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument('-model',help='name of the model to be trained')
+	parser.add_argument('-train_pool',action='store_true')
 	parser.add_argument('-render',action='store_true')
 
 	return parser.parse_args()
@@ -275,13 +328,19 @@ if __name__ == '__main__':
 			count += 1
 		name = 'model'+str(count)
 
-	print('Training on model: '+str(name))
 
-
-	parameters,metainfo = parameter_managment.load_model(name)
 	if args.render:
+		parameters,metainfo = parameter_managment.load_model(name)
 		render()
+	elif args.train_pool:
+		no_members = 10
+		pool = [parameter_managment.load_model('train_pool'+str(i)) for i in range(no_members)]
+		metainfo = pool[0][1]
+		metainfo['no_epochs'] = 30
+		train_pool()
 	else:
+		print('Training model'+str(name))
+		parameters,metainfo = parameter_managment.load_model(name)
 		train()
 
 
