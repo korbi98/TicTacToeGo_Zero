@@ -8,7 +8,7 @@ The project contains two seperate AIs for playing TicTacToe:
 
 To launch the game, simply start the play.py script with the following parameters:
 
-    1. Size of game (e.g. 3 for standart TicTacToe)
+    1. Size of game (e.g. 3 for standard TicTacToe)
     2. Winning condition (number of consecutive pieces)
     3. Start player (0 for Human, 1 for computer)
     4. AI mode (tree, network(only for 3x3 game) or random)(optional, default=network)
