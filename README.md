@@ -14,12 +14,11 @@ To launch the game, simply start the play.py script with the following parameter
     4. AI mode (tree, network(only for 3x3 game) or random)(optional, default=network)
     5. Number of Monte Carlo simulations (optional, default=1000)
 
-Examples:
+#### Examples:
     ./play.py 3 3 0
     ./play.py 5 4 1 tree 3000
     ./play.py 6 4 0 random
 
-Dependencies:
+#### Dependencies:
     - numpy
-    - tkinter
     - pytorch for network
