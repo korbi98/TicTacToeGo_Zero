@@ -34,18 +34,16 @@ class Node:
                 self.add_child(position)
 
     def update(self, result):
+        '''update visits and reward according to result'''
         self.visits += 1
         reward = 0 # reward a tie with 3
         if result:
-            if self.current_player == result:
+            if self.current_player == result: # player of current node has won
                 reward = 1
-            else:
+            else: # player of current node has lost
                 reward = -1
         self.reward += reward
-            # if self.current_player == result:
-            #     self.reward[0] += 1 # wins
-            # elif self.current_player == 3 - result:
-            #     self.reward[1] += 1 # losses
+
 
     def UTC_traverse(self, root):
         '''Choosed child for node via UCT function'''
@@ -54,7 +52,7 @@ class Node:
     
 
     def UCT(self, root):
-        '''calculate UCT value for given (leaf) node'''
+        '''calculate UCT value for given node'''
         if self.visits == 0: return 0
         return self.reward/self.visits + 1*math.sqrt(math.log(root.visits)/self.visits)
 

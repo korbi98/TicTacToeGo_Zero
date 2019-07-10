@@ -1,4 +1,4 @@
-# Graphical User Interfaceq
+# Graphical User Interface
 from tkinter import *
 from tkinter import messagebox
 import tictactoe as ttt
@@ -36,7 +36,7 @@ class Game:
         self.initGui()
 
     def initGui(self):
-        '''Initialize the GUI by creating grid with size**2 buttons
+        '''Initializes the GUI by creating grid with size**2 buttons
             and sets the action of each button to btnClick'''
         self.root = Tk()
         frame = Frame(self.root)
@@ -127,7 +127,6 @@ class Game:
             policy = policy * (flatgame == 0)
 
         # map index of highest policy value to size x size matrix
-        bestmove = np.unravel_index(np.argmax(policy), (self.game.size, self.game.size))
-        print("AI choose: x = ",bestmove[0], ", y = ", bestmove[1])
-        self.makeMove(bestmove[0], bestmove[1])
-    
+        x,y = np.unravel_index(np.argmax(policy), (self.game.size, self.game.size))
+        print("AI choose: x = ", x, ", y = ", y)
+        self.makeMove(x, y)
