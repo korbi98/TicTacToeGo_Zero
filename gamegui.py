@@ -21,7 +21,7 @@ class Game:
         - number_of_rollouts: specifies the number of simulations
             for each move for MCTS
     '''
-    
+
     def __init__(self, size, win_condition, isAIstarting = False, ai_mode = "network", number_of_rollouts = 1000):
         self.game = ttt.Tictactoe(size, win_condition)
         self.btnGrid = [[0 for i in range(size)] for i in range(size)]
@@ -30,8 +30,8 @@ class Game:
         self.number_of_rollouts = number_of_rollouts
 
         if self.ai_mode == "network":
-            self.parameters = agent.load_model('savedmodel-10-10-9')
-            print('loaded parameters')
+            self.Agent = agent.Agent('model0')
+            print('collected parameters for model0')
 
         self.initGui()
 
@@ -42,7 +42,7 @@ class Game:
         frame = Frame(self.root)
         self.root.title("TicTacToe")
         frame.grid(row=0, column=0)
-        
+
         for i in range(self.game.size):
             for j in range(self.game.size):
                 self.btnGrid[i][j] = Button(frame, text=" ")
@@ -110,7 +110,7 @@ class Game:
         policy = np.zeros(self.game.size**2)
         
         if (self.ai_mode == "network"):
-            policy = agent.policy_head(self.game.board, self.parameters).detach().numpy()
+            policy = self.Agent.policy_head(self.game.board).detach().numpy()
             highest = self.game.get_coords(np.argmax(policy))
             print("Network would like to have picked: x="+str(highest[0])+", y="+str(highest[1]))
             policy = policy * (flatgame == 0)

@@ -23,9 +23,9 @@ no_epochs = 10000
 epoch = 0
 
 win_reward = 1.
-loss_reward = -1.
+loss_reward = 0.
 cheat_reward = -10.
-draw_reward = 0.
+draw_reward = 0.5
 
 def get_random_weights(metainfo):
 	""" 
@@ -48,12 +48,12 @@ def get_random_weights(metainfo):
 
 
 
-def load_model(name=None):
+def load_model(name):
 	""" 
 	loads the model, returns a new/random model if no model is found
 	"""
 
-	if name == None or not(os.path.isdir(name)):
+	if not(os.path.isdir(name)):
 		metainfo = {'dimensions':dimensions,
                     'board_size':board_size,
                     'n_spaces':board_size**2,

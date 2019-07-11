@@ -12,96 +12,92 @@ import argparse
 def activation(z):
 	return torch.tanh(z)
 
-def infere(state,parameters):
 
-	# converts to flatt one hot encoding
-	in_state = torch.tensor(state)
-	flatt = in_state.flatten()
+class Agent():
 
-	z = torch.zeros(3,metainfo['n_spaces'])
-	z[flatt,torch.arange(metainfo['n_spaces'])] = 1.
-	z = z.flatten()
+	def __init__(self,name):
+		self.name = name
+		self.parameters,self.metainfo = parameter_managment.load_model(name)
 
 
-	# runs through layers
-	for layer_index in range(len(metainfo['dimensions'])):
-		z = activation(parameters[layer_index][0]+
-			       torch.matmul(parameters[layer_index][1],z))
+	def infere(self,state):
+
+		# converts to flatt one hot encoding
+		in_state = torch.tensor(state)
+		flatt = in_state.flatten()
+
+		z = torch.zeros(3,self.metainfo['n_spaces'])
+		z[flatt,torch.arange(self.metainfo['n_spaces'])] = 1.
+		z = z.flatten()
 
 
-	return z
+		# runs through layers
+		for layer_index in range(len(self.metainfo['dimensions'])):
+			z = activation(self.parameters[layer_index][0]+
+				       torch.matmul(self.parameters[layer_index][1],z))
 
-# softmax layer for the policy network
-def policy_head(state,parameters):
+		return z
 
-	out = infere(state,parameters)
-	exp_out = torch.exp(out)
+	# softmax layer for the policy network
+	def policy_head(self,state):
 
-	return exp_out/torch.sum(exp_out)
+		out = self.infere(state)
+		exp_out = torch.exp(out)
 
-
-
-# picks the highest legal option
-# out of a random or a calculated distribution
-def highest_legal(state,parameters,noise=0.):
-
-	if np.random.random_sample() > noise:
-		distribution = policy_head(state,parameters).numpy()
-	else:
-		distribution = np.random.random(size=metainfo['n_spaces'])
-
-	legal = (np.array(state).flatten()==0).astype(np.int32)
-	return np.argmax(legal*distribution)
+		return exp_out/torch.sum(exp_out)
 
 
-def highest(state,parameters,noise=0.):
-	if np.random.random_sample() > noise:
-		distribution = policy_head(state,parameters).numpy()
-	else:
-		distribution = np.random.random(size=metainfo['n_spaces'])
 
-	return np.argmax(distribution)
+	# picks the highest legal option
+	# out of a random or a calculated distribution
+	def highest_legal(self,state,noise=0.):
 
+		if np.random.random_sample() > noise:
+			distribution = self.policy_head(state).numpy()
+		else:
+			distribution = np.random.random(size=self.metainfo['n_spaces'])
 
-def color(s,symbol):
+		legal = (np.array(state).flatten()==0).astype(np.int32)
+		return np.argmax(legal*distribution)
 
-        if symbol == 0:
-                return '\u001b[31m'+str(s)+'\u001b[0m'
-        elif symbol == 1:
-                return '\u001b[34m'+str(s)+'\u001b[0m'
+	# picks the highets option
+	# out of a random or caluclated distribution
+	# might try to break the rules
+	def highest(self,state,noise=0.):
+		if np.random.random_sample() > noise:
+			distribution = self.policy_head(state).numpy()
+		else:
+			distribution = np.random.random(size=self.metainfo['n_spaces'])
 
-def render():
+		return np.argmax(distribution)
 
+	def loss(self,states,actions,rewards):
 
-        Game = ttt.Tictactoe(metainfo['board_size'],metainfo['win_condition'])
-        parameter_pair = [parameters,parameters]
+		batch_size = rewards.size
+		log_loss = torch.empty(batch_size)
 
-
-        with torch.no_grad():
-                for i in range(4):
-                        states,actions,rewards,statistics = play_episode(Game,parameter_pair,noise=0.3)
-                        board = []
-                        counter = 0
-                        for i in range(3):
-                                board.append([' ']*3)
-                        for i in range(len(actions[0])):
-                                for p in range(2):
-                                        if len(actions[p]) > i:
-                                                coords = Game.get_coords(actions[p][i])
-                                                board[coords[0]][coords[1]] = color(counter,p)
-                                                counter += 1
+		for i in range(batch_size):
+			log_loss[i] = torch.log(self.policy_head(states[i])[actions[i]])
+			log_loss[i] = log_loss[i]*rewards[i]
 
 
-                        print('+-+-+-+')
-                        for row in board:
-                                str = ''
-                                for j in range(len(row)):
-                                        str += '|'+row[j]
-                                print(str)
-                                print('+-+-+-+')
-                        print('')
+		return torch.mean(log_loss)
 
-def play_episode(Game,agent_parameters,noise):
+	def optimize(self,lr=None):
+
+		if lr==None:
+			lr = self.metainfo['learning_rate']
+
+		with torch.no_grad():
+			for layer in range(len(self.metainfo['dimensions'])):
+				self.parameters[layer][0] += lr*self.parameters[layer][0].grad
+				self.parameters[layer][1] += lr*self.parameters[layer][1].grad
+				self.parameters[layer][0].grad.data.zero_()
+				self.parameters[layer][1].grad.data.zero_()
+
+
+
+def play_episode_(Game,agent_parameters,noise):
 
 	states_batch = [[],[]]
 	actions_batch = [[],[]]
@@ -156,8 +152,55 @@ def play_episode(Game,agent_parameters,noise):
 
 	return states_batch,actions_batch,rewards_batch,over
 
+def play_episode(Game,agents,metainfo):
+	""" 
+	Plays on episode of tictactoe gioven an instance of a game
+	and a tuple of instaces of agents. Returns a batch of states actions and rewards
+	taht the agents recieved as well as the terminating condition.
+	"""
 
-def get_training_batch(Game,agent_parameters,batch_size,noise = 0.0):
+	states_batch = [[],[]]
+	actions_batch = [[],[]]
+	rewards_batch = [[],[]]
+	game_len = 0
+	player = 0
+	over = False
+
+	while game_len <= Game.size**2 and not(over):
+
+		states_batch[player].append(np.array(Game.board))
+
+		action = agents[player].highest_legal(Game.board,noise=metainfo['noise'])
+		x,y = Game.get_coords(action.item())
+		allowed = Game.setField(x,y)
+
+		actions_batch[player].append(action.item())
+
+		#checks for Win
+		res = Game.checkboard()
+		if res:
+			rewards_batch[player] = [metainfo['win_reward']]*len(states_batch[player])
+			rewards_batch[int(player==0)] = [metainfo['loss_reward']]*len(states_batch[int(player==0)])
+			over = 'Win'
+
+		#checks for rule violation
+		if not(allowed):
+			rewards_batch[player] = [metainfo['cheat_reward']]*len(states_batch[player])
+			rewards_batch[int(player==0)] = [0.]*len(states_batch[int(player==0)])
+			over = 'Rule Violation'
+
+		# checks for draws
+		if game_len == Game.size**2:
+			rewards_batch[player] = [metainfo['draw_reward']]*len(states_batch[player])
+			rewards_batch[int(player==0)] = [metainfo['draw_reward']]*len(states_batch[int(player==0)])
+			over = 'Draw'
+
+		player = int(player==0)
+		game_len += 1
+	Game.reset()
+	return states_batch,actions_batch,rewards_batch,over
+
+def get_training_batch(Game,agents,metainfo,batch_size):
 
 	collected = 0
 
@@ -167,7 +210,7 @@ def get_training_batch(Game,agent_parameters,batch_size,noise = 0.0):
 	outcomes = [0,0,0]
 
 	while collected <= batch_size:
-		states_batch,actions_batch,rewards_batch,over = play_episode(Game,agent_parameters,noise)
+		states_batch,actions_batch,rewards_batch,over = play_episode(Game,agents,metainfo)
 		if over == 'Rule Violation':
 			outcomes[0] += 1.
 		elif over == 'Win':
@@ -195,23 +238,24 @@ def get_training_batch(Game,agent_parameters,batch_size,noise = 0.0):
 	return np.array(states),np.array(actions),np.array(rewards),statistic
 
 
-def loss(states,actions,rewards,parameters,batch_size):
+def loss_(states,actions,rewards,agent,batch_size):
 
 	log_loss = torch.empty(batch_size)
 
 	for i in range(batch_size):
-		log_loss[i] = torch.log(policy_head(states[i],parameters)[actions[i]])
+		log_loss[i] = torch.log(agent.policy_head(states[i])[actions[i]])
 		log_loss[i] = log_loss[i]*rewards[i]
 
 
 	return torch.mean(log_loss)
 
 
-def train():
-	Game = ttt.Tictactoe(metainfo['board_size'],metainfo['win_condition'])
-	noise = metainfo['noise']
+def train(name):
+	subject = Agent(name)
+	metainfo = subject.metainfo
+	agent_pair = [subject,subject]
 
-	parameter_pair = [parameters,parameters]
+	Game = ttt.Tictactoe(metainfo['board_size'], metainfo['win_condition'])
 
 	extra_history = []
 	loss_history = []
@@ -221,40 +265,41 @@ def train():
 
 	while metainfo['epoch'] < metainfo['no_epochs']:
 
-		noise *= metainfo['noise_decay']
 
 		with torch.no_grad():
-			states,actions,rewards,statistic = get_training_batch(Game,parameter_pair,metainfo['batch_size'],noise = noise)
+			states,actions,rewards,statistic = get_training_batch(Game,agent_pair,metainfo,metainfo['batch_size'])
 			extra_history.append(statistic[1])
 
-		l = loss(states,actions,rewards,parameters,metainfo['batch_size'])
+		l = subject.loss(states,actions,rewards)
 		l.backward()
+		subject.optimize()
 
-		with torch.no_grad():
-			for layer in range(len(metainfo['dimensions'])):
-				parameters[layer][0] += metainfo['learning_rate']*parameters[layer][0].grad
-				parameters[layer][1] += metainfo['learning_rate']*parameters[layer][1].grad
-				parameters[layer][0].grad.data.zero_()
-				parameters[layer][1].grad.data.zero_()
-				parameter_managment.save_model(parameters,metainfo,name)
+		parameter_managment.save_model(subject.parameters,subject.metainfo,name)
 
 		loss_history.append(l.item())
 		print('epoch: '+str(metainfo['epoch'])+
 			      '\tloss: '+str('{:5f}'.format(l.item()))+
-			      '\tnoise: '+str('{:5f}'.format(extra_history[-1])))
+			      '\textra info: '+str('{:5f}'.format(extra_history[-1])))
 
 		Training_Monitor.refresh(loss_history,extra_history)
 
 		metainfo['epoch'] += 1
 
-def train_pool():
+def train_pool(name):
+
+	no_members = 20
+	if not(os.path.isdir(name)):
+		os.mkdir(name)
+
+	member_names = [os.path.join(name,str(i)) for i in range(no_members)]
+	pool = [Agent(member_name) for member_name in member_names]
+	metainfo = pool[0].metainfo
 
 	Game = ttt.Tictactoe(metainfo['board_size'],metainfo['win_condition'])
 
 	batch_size = metainfo['batch_size']
 	no_mini_batches = 20
 	mini_batch_size = batch_size//no_mini_batches
-	lr = metainfo['learning_rate']
 
 	while metainfo['epoch'] < metainfo['no_epochs']:
 
@@ -269,9 +314,9 @@ def train_pool():
 
 			for batch_index in range(0,batch_size,mini_batch_size):
 				batchn = batch_index//mini_batch_size
-				mini_batch = get_training_batch(Game,
-								[pool[p1[batchn]][0],pool[p2[batchn]][0]],
-								mini_batch_size,noise = 0.)
+				matchup = (pool[p1[batchn]],pool[p2[batchn]])
+				mini_batch = get_training_batch(Game,matchup,metainfo,mini_batch_size)
+
 				states[batch_index:batch_index+mini_batch_size] = mini_batch[0]
 				actions[batch_index:batch_index+mini_batch_size] = mini_batch[1]
 				rewards[batch_index:batch_index+mini_batch_size] = mini_batch[2]
@@ -281,18 +326,14 @@ def train_pool():
 		result_str = 'epoch: '+str(metainfo['epoch'])
 
 		for member_index in range(no_members):
-			l = loss(states,actions,rewards,pool[member_index][0],batch_size)
+			l = pool[member_index].loss(states,actions,rewards)
 			l.backward()
-
-			with torch.no_grad():
-				for layer in range(len(metainfo['dimensions'])):
-					pool[member_index][0][layer][0] += lr*pool[member_index][0][layer][0].grad
-					pool[member_index][0][layer][1] += lr*pool[member_index][0][layer][1].grad
-					pool[member_index][0][layer][0].grad.data.zero_()
-					pool[member_index][0][layer][1].grad.data.zero_()
+			pool[member_index].optimize()
 
 			result_str += ' {}: {:3f}'.format(member_index,l.item())
-			parameter_managment.save_model(pool[member_index][0],pool[0][1],'train_pool'+str(member_index))
+			parameter_managment.save_model(pool[member_index].parameters,
+						       metainfo,
+						       member_names[member_index])
 
 		print(result_str)
 
@@ -302,7 +343,7 @@ def train_pool():
 
 
 def get_name(dimensions):
-	name = 'savedmodel'
+	name = 'model'
 	for dim in dimensions:
 		name += '-'+str(dim)
 	return name
@@ -312,7 +353,6 @@ def get_args():
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument('-model',help='name of the model to be trained')
 	parser.add_argument('-train_pool',action='store_true')
-	parser.add_argument('-render',action='store_true')
 
 	return parser.parse_args()
 
@@ -329,18 +369,9 @@ if __name__ == '__main__':
 		name = 'model'+str(count)
 
 
-	if args.render:
-		parameters,metainfo = parameter_managment.load_model(name)
-		render()
-	elif args.train_pool:
-		no_members = 10
-		pool = [parameter_managment.load_model('train_pool'+str(i)) for i in range(no_members)]
-		metainfo = pool[0][1]
-		metainfo['no_epochs'] = 30
-		train_pool()
+	if args.train_pool:
+		train_pool(name)
 	else:
-		print('Training model'+str(name))
-		parameters,metainfo = parameter_managment.load_model(name)
-		train()
+		train(name)
 
 
