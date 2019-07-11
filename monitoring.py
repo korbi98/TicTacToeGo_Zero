@@ -38,3 +38,26 @@ class Monitor():
 
 
 
+class PoolMonitor():
+
+	def __init__(self,start_epoch,no_members):
+		self.start_epoch = start_epoch
+		self.no_members = no_members
+
+		plt.ion()
+		self.fig = plt.figure(figsize=(9.,9.))
+		self.ax1 = self.fig.add_subplot(111)
+		self.lines = [self.ax1.plot([])[0] for i in range(self.no_members)]
+
+		self.ax1.set_title('Loss of the population')
+		self.ax1.set_xlabel('Training Episodes')
+
+	def refresh(self,losses):
+		for member_index in range(self.no_members):
+			line = self.lines[member_index]
+			line.set_data(np.arange(len(losses[member_index]))+self.start_epoch,losses[member_index])
+
+		self.ax1.autoscale_view()
+		self.ax1.relim()
+		self.fig.canvas.draw()
+		plt.pause(0.0001)

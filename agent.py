@@ -43,14 +43,20 @@ class Agent():
 
 		out = self.infere(state)
 		exp_out = torch.exp(out)
-
 		return exp_out/torch.sum(exp_out)
 
 
+	# picks a legal option folowing the distribution of the network
+	def prop_legal(self,state):
+		distribution = self.policy_head(state).numpy()
+		legal_distribution = (np.array(state).flatten()==0).astype(np.float32)*distribution
+		legal_distribution /= np.sum(legal_distribution)
+		return  np.random.choice(distribution.size,1,p=legal_distribution)[0]
 
 	# picks the highest legal option
 	# out of a random or a calculated distribution
-	def highest_legal(self,state,noise=0.):
+	def highest_legal(self,state,noise=0.1):
+
 
 		if np.random.random_sample() > noise:
 			distribution = self.policy_head(state).numpy()
@@ -97,64 +103,10 @@ class Agent():
 
 
 
-def play_episode_(Game,agent_parameters,noise):
-
-	states_batch = [[],[]]
-	actions_batch = [[],[]]
-	rewards_batch = [[],[]]
-	game_len = 0
-	player = False
-	over = False
-
-
-	while game_len <= Game.size**2 and not(over):
-
-
-		states_batch[int(player)].append(np.array(Game.board))
-
-		action = highest_legal(Game.board,agent_parameters[int(player)],noise=noise)
-		x,y = Game.get_coords(action.item())
-		allowed = Game.setField(x,y)
-
-		actions_batch[int(player)].append(action.item())
-
-
-		# checks for win
-		res =  Game.checkboard()
-		if res:
-
-			rewards_batch[int(player)] = [metainfo['win_reward']] * len(states_batch[int(player)])
-			rewards_batch[int(not(player))] = [metainfo['loss_reward']] * len(states_batch[int(not(player))])
-
-			over = 'Win'
-
-		# checks for rule violations
-		if not(allowed):
-
-			rewards_batch[int(player)] = [metainfo['cheat_reward']]*len(states_batch[int(player)])
-			rewards_batch[int(not(player))] = [0.]*len(states_batch[int(not(player))])
-
-			over = 'Rule Violation'
-
-		# checks for draws
-		if game_len == Game.size**2:
-
-			rewards_batch[0] = [metainfo['draw_reward']] * len(states_batch[0])
-			rewards_batch[1] = [metainfo['draw_reward']] * len(states_batch[1])
-
-			over = 'Draw'
-
-		game_len += 1
-		player = not(player)
-
-
-	Game.reset()
-
-	return states_batch,actions_batch,rewards_batch,over
 
 def play_episode(Game,agents,metainfo):
 	""" 
-	Plays on episode of tictactoe gioven an instance of a game
+	Plays on episode of tictactoe given an instance of a game
 	and a tuple of instaces of agents. Returns a batch of states actions and rewards
 	taht the agents recieved as well as the terminating condition.
 	"""
@@ -170,8 +122,8 @@ def play_episode(Game,agents,metainfo):
 
 		states_batch[player].append(np.array(Game.board))
 
-		action = agents[player].highest_legal(Game.board,noise=metainfo['noise'])
-		x,y = Game.get_coords(action.item())
+		action = agents[player].prop_legal(Game.board)
+		x,y = Game.get_coords(action)
 		allowed = Game.setField(x,y)
 
 		actions_batch[player].append(action.item())
@@ -190,7 +142,7 @@ def play_episode(Game,agents,metainfo):
 			over = 'Rule Violation'
 
 		# checks for draws
-		if game_len == Game.size**2:
+		if game_len == Game.size**2-1:
 			rewards_batch[player] = [metainfo['draw_reward']]*len(states_batch[player])
 			rewards_batch[int(player==0)] = [metainfo['draw_reward']]*len(states_batch[int(player==0)])
 			over = 'Draw'
@@ -237,17 +189,6 @@ def get_training_batch(Game,agents,metainfo,batch_size):
 
 	return np.array(states),np.array(actions),np.array(rewards),statistic
 
-
-def loss_(states,actions,rewards,agent,batch_size):
-
-	log_loss = torch.empty(batch_size)
-
-	for i in range(batch_size):
-		log_loss[i] = torch.log(agent.policy_head(states[i])[actions[i]])
-		log_loss[i] = log_loss[i]*rewards[i]
-
-
-	return torch.mean(log_loss)
 
 
 def train(name):
@@ -301,6 +242,9 @@ def train_pool(name):
 	no_mini_batches = 20
 	mini_batch_size = batch_size//no_mini_batches
 
+	losses = [[] for _ in range(no_members)]
+	Monitor = monitoring.PoolMonitor(metainfo['epoch'],no_members)
+
 	while metainfo['epoch'] < metainfo['no_epochs']:
 
 		p1 = np.random.randint(no_members,size=no_mini_batches)
@@ -334,6 +278,10 @@ def train_pool(name):
 			parameter_managment.save_model(pool[member_index].parameters,
 						       metainfo,
 						       member_names[member_index])
+			losses[member_index].append(l.item())
+		if metainfo['epoch']%5==0:
+			Monitor.refresh(losses)
+
 
 		print(result_str)
 
@@ -341,12 +289,6 @@ def train_pool(name):
 		metainfo['epoch'] += 1
 
 
-
-def get_name(dimensions):
-	name = 'model'
-	for dim in dimensions:
-		name += '-'+str(dim)
-	return name
 
 def get_args():
 
@@ -358,6 +300,12 @@ def get_args():
 
 
 if __name__ == '__main__':
+
+
+
+	subject = Agent('model1')
+	Game = ttt.Tictactoe(3,3)
+
 
 	args = get_args()
 	if args.model != None:
@@ -373,5 +321,6 @@ if __name__ == '__main__':
 		train_pool(name)
 	else:
 		train(name)
+
 
 

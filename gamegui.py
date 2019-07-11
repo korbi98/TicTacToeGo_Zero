@@ -30,7 +30,7 @@ class Game:
         self.number_of_rollouts = number_of_rollouts
 
         if self.ai_mode == "network":
-            self.Agent = agent.Agent('model0')
+            self.Agent = agent.Agent('model1')
             print('collected parameters for model0')
 
         self.initGui()

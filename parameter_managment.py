@@ -8,7 +8,7 @@ import yaml
 import os
 import torch
 
-dimensions= [10,10,9]
+dimensions= [100,9]
 
 board_size = 3
 win_condition = 3
