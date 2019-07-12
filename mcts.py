@@ -12,20 +12,18 @@ class MCTS:
     Class defining a simple monte carlo tree search algorithm.
 
     Attributes:
-        - game_state: the current state of the game (tictactoe board)
-        - win_condition: same as win_condition for Tictactoe
+        - game: instance of TicTacToe game
+        - current_player: player to perform next move
         - number_of_rollouts: number of simulations for generating one move
         - tree: list containing all possible and impossible (taken) leaf nodes
     '''
-    def __init__(self, game_state, current_player, wincondition, number_of_rollouts):
-        self.game_state = game_state
-        self.current_player = current_player
+    def __init__(self, game, number_of_rollouts):
+        self.game = game
+        self.current_player = game.move_number%2 + 1
         print(self.current_player)
-        self.tree = Node(None,-1, 3 - self.current_player)
-        self.wincondition = wincondition
-        
+        self.tree = Node(None, -1, 3 - self.current_player) # Root node of tree
         self.number_of_rollouts = number_of_rollouts
-        print("Initial game state:\n",self.game_state)
+        print("Initial game state:\n",self.game.board)
 
 
     def perform_search(self):
@@ -35,9 +33,7 @@ class MCTS:
         '''
         start_time = time.clock()
         for i in range(self.number_of_rollouts):
-            simulated_game = Tictactoe(len(self.game_state), self.wincondition)
-            simulated_game.board = copy.deepcopy(self.game_state)
-            simulated_game.move_number = (simulated_game.getFlatgame() != 0).sum()
+            simulated_game = copy.deepcopy(self.game)
 
             # Traverse to leaf
             leaf = self.traverse_tree(simulated_game)
@@ -69,7 +65,7 @@ class MCTS:
 
         print("\nSearch took:", round(end_time-start_time, 4), "seconds")
 
-        result = [0 for i in range(len(self.game_state)**2)]
+        result = [0 for i in range(self.game.size**2)]
         for child in self.tree.children:
             result[child.boardposition] = child.visits
         return result
@@ -125,4 +121,3 @@ class MCTS:
             #current_node.print(self.tree)
             current_node.update(result)
             current_node = current_node.parent
-        

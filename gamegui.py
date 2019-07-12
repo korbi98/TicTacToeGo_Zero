@@ -117,7 +117,7 @@ class Game:
             print(np.round(policy, decimals=2))
         elif (self.ai_mode == "tree"):
             current_player = self.game.move_number % 2 + 1
-            tree_ai = mcts.MCTS(self.game.board, current_player, self.game.win_condition, self.number_of_rollouts)
+            tree_ai = mcts.MCTS(self.game, self.number_of_rollouts)
             policy = tree_ai.perform_search()
             # Add small deviation to prevent ties
             policy = policy + (np.random.rand(self.game.size**2)*0.1)
