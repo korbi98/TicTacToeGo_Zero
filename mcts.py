@@ -52,16 +52,6 @@ class MCTS:
         print("\nSecond layer:")
         for child in second_layer.children:
             child.print(self.tree)
-        if second_layer.children:
-            third_layer = max(second_layer.children, key= lambda x: x.visits)
-            print("\nThird layer:")
-            for child in third_layer.children:
-                child.print(self.tree)
-            if third_layer.children:
-                fourth_layer = max(third_layer.children, key= lambda x: x.visits)      
-                print("\nFourth layer:")
-                for child in fourth_layer.children:
-                    child.print(self.tree)
 
         print("\nSearch took:", round(end_time-start_time, 4), "seconds")
 

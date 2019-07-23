@@ -36,7 +36,7 @@ class Node:
     def update(self, result):
         '''update visits and reward according to result'''
         self.visits += 1
-        reward = 0 # reward a tie with 3
+        reward = 0 # reward a tie with 0
         if result:
             if self.current_player == result: # player of current node has won
                 reward = 1
