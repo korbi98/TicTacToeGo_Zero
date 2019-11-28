@@ -1,5 +1,5 @@
 # TicTacToeGo_Zero
-TicTacToe Monte-Carlo-Tree Search and Reinforcement Learning
+TicTacToe Monte-Carlo-Tree-Search and Reinforcement Learning
 
 The project contains two seperate AIs for playing TicTacToe:
 
