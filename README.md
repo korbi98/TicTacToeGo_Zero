@@ -1,10 +1,10 @@
 # TicTacToeGo_Zero
-Maschine Learning with TicTacToe with policy and MCTS (Work in Progress)
+TicTacToe Monte-Carlo-Tree Search and Reinforcement Learning
 
 The project contains two seperate AIs for playing TicTacToe:
 
     1. Monte Carlo tree search
-    2. Neural Network trained by reinforcement learning (Work in Progress)
+    2. Neural Network trained by reinforcement learning (Not working yet!)
 
 To launch the game, simply start the play.py script with the following parameters:
 
@@ -21,4 +21,4 @@ To launch the game, simply start the play.py script with the following parameter
 
 #### Dependencies:
     - numpy
-    - pytorch for network
+    - pytorch (for network)
